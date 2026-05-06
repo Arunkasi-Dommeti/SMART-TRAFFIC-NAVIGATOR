@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="te">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hospital Dashboard — Smart Traffic Navigator</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@400;600;700&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="Hospital.jpeg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
+<!-- Firebase SDK v8 -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/fir ebasejs/8.10.1/firebase-database.js"></script>
+
+<style>
+.ftr {
+  background: #000; /* Pure black vibe like Optica */
+  border-top: 1px solid var(--border);
+  padding: 60px 20px 30px;
+  margin-top: 50px;
+  position: relative;
+  z-index: 1;
+}
+
+.ftr-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  gap: 40px;
+}
+
+.ftr-col h3 {
+  font-family: var(--head);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #fff;
+  margin-bottom: 25px;
+  text-transform: uppercase;
+}
+
+.ftr-col a {
+  display: block;
+  color: #ccc;
+  text-decoration: none;
+  font-size: 13px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  font-weight: 400;
+}
+
+
+.ftr-col a:hover {
+  color: var(--blue);
+  transform: translateX(5px);
+}
+
+.ftr-logo {
+  font-family: var(--head);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 2px;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.ftr-logo span {
+  color: var(--red);
+}
+
+.ftr-desc {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.8;
+  margin-bottom: 20px;
+  max-width: 300px;
+}
+
+.ftr-copy {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+
+.ai-badge-ftr {
+  display: inline-block;
+  padding: 6px 15px;
+  background: rgba(0, 170, 255, 0.1);
+  border: 1px solid var(--blue);
+  color: var(--blue);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.ftr-status {
+  margin-top: 15px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:root {
+  --red:#ff1a2e; --red2:#cc0011;
+  --amber:#ffaa00; --green:#00e87a;
+  --blue:#00aaff; --purple:#aa55ff;
+  --teal:#00ddd0; --orange:#ff7700;
+  --bg:#07080a; --bg2:#0d1117; --bg3:#141b24;
+  --border:rgba(255,255,255,0.08);
+  --border2:rgba(255,255,255,0.15);
+  --text:#e8edf2; --text2:#7a8a9a;
+  --mono:'Share Tech Mono',monospace;
+  --head:'Rajdhani',sans-serif;
+  --tel:'Noto Sans Telugu',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:var(--tel);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,170,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,170,255,0.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+.menu-btn{background:var(--blue);border:none;color:#000;font-family:var(--head);font-size:14px;font-weight:700;padding:8px 14px;cursor:pointer;border-radius:4px;display:flex;align-items:center;gap:8px;transition:all 0.2s;letter-spacing:1px;box-shadow:0 0 10px rgba(0,170,255,0.3);}
+.menu-btn:hover{background:#33bbff;box-shadow:0 0 20px rgba(0,170,255,0.6);}
+
+.hdr{position:sticky;top:0;z-index:100;background:rgba(7,8,10,0.97);border-bottom:2px solid rgba(0,232,122,0.3);backdrop-filter:blur(12px);padding:0 24px;height:62px;display:flex;align-items:center;justify-content:space-between;}
+.hdr-left{display:flex;align-items:center;gap:14px;}
+.hdr-icon{width:42px;height:42px;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:20px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);animation:gpulse 2s ease infinite;box-shadow:0 0 20px rgba(0,232,122,0.5);}
+@keyframes gpulse{0%,100%{box-shadow:0 0 20px rgba(0,232,122,0.4)}50%{box-shadow:0 0 40px rgba(0,232,122,0.8)}}
+.hdr-title{font-family:var(--head);font-size:18px;font-weight:700;letter-spacing:2px;}
+.hdr-sub{font-family:var(--mono);font-size:9px;color:var(--green);letter-spacing:3px;margin-top:1px;}
+.hdr-right{display:flex;align-items:center;gap:12px;}
+.badge{font-family:var(--mono);font-size:10px;padding:3px 12px;border:1px solid;letter-spacing:1px;}
+.badge-green{color:var(--green);border-color:var(--green);background:rgba(0,232,122,0.08);}
+.badge-red{color:var(--red);border-color:var(--red);background:rgba(255,26,46,0.08);}
+.badge-amber{color:var(--amber);border-color:var(--amber);background:rgba(255,170,0,0.08);}
+.badge-blue{color:var(--blue);border-color:var(--blue);background:rgba(0,170,255,0.08);}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 1s step-end infinite;display:inline-block;margin-right:4px;}
+@keyframes blink{50%{opacity:0}}
+
+
+.status-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 24px;display:flex;align-items:center;gap:24px;font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--text2);position:relative;z-index:1;}
+.sb-item{display:flex;align-items:center;gap:6px;}
+.sb-item b{color:var(--text);}
+.alert-count-badge{background:var(--red);color:#fff;padding:1px 7px;font-family:var(--mono);font-size:10px;font-weight:bold;margin-left:6px;animation:scalePulse 1s ease infinite;}
+@keyframes scalePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+
+
+.main-wrap{display:flex;height:calc(100vh - 144px);position:relative;z-index:1;overflow:hidden;}
+.panel-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:40;opacity:0;pointer-events:none;transition:opacity 0.3s;backdrop-filter:blur(2px);}
+.panel-overlay.show{opacity:1;pointer-events:all;}
+
+.alerts-panel{position:absolute;left:-420px;top:0;bottom:0;width:420px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:50;transition:left 0.3s cubic-bezier(0.4, 0, 0.2, 1);box-shadow:5px 0 25px rgba(0,0,0,0.8);}
+.alerts-panel.open{left:0;}
+.ap-head{padding:14px 18px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:space-between;}
+.ap-title{font-family:var(--head);font-size:15px;font-weight:700;letter-spacing:2px;color:var(--text);}
+.ap-sub{font-family:var(--mono);font-size:9px;color:var(--text2);margin-top:3px;letter-spacing:1px;}
+.filter-row{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;}
+.f-btn{font-family:var(--mono);font-size:9px;padding:3px 10px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;letter-spacing:1px;transition:all 0.2s;}
+.f-btn:hover{border-color:var(--border2);color:var(--text);}
+.f-btn.active{border-color:var(--green);color:var(--green);background:rgba(0,232,122,0.08);}
+.alerts-list{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;}
+.alerts-list::-webkit-scrollbar{width:3px;}
+.alerts-list::-webkit-scrollbar-thumb{background:var(--border2);}
+
+
+.alert-card{background:var(--bg3);border:1px solid var(--border);padding:14px;cursor:pointer;transition:all 0.2s;position:relative;}
+.alert-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--red);transition:background 0.2s;}
+.alert-card.status-dispatched::before{background:var(--amber);}
+.alert-card.status-arrived::before{background:var(--green);}
+.alert-card.selected{border-color:var(--blue);background:rgba(0,170,255,0.05);}
+.alert-card:hover{border-color:var(--border2);}
+.ac-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.ac-type{font-family:var(--head);font-size:14px;font-weight:700;letter-spacing:1px;}
+.ac-time{font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:1px;}
+.ac-id{font-family:var(--mono);font-size:9px;color:var(--amber);margin-bottom:6px;letter-spacing:1px;}
+.ac-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;}
+.ac-stat{display:flex;flex-direction:column;gap:2px;}
+.ac-stat-l{font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--text2);}
+.ac-stat-v{font-family:var(--mono);font-size:11px;font-weight:bold;}
+.c-red{color:var(--red)}.c-amb{color:var(--amber)}.c-grn{color:var(--green)}.c-blue{color:var(--blue)}
+.ac-symp{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+.symp-tag{font-family:var(--mono);font-size:8px;padding:2px 6px;background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);color:var(--amber);letter-spacing:0.5px;}
+.ac-action-row{display:flex;gap:6px;}
+.ac-btn{flex:1;padding:6px;border:1px solid;font-family:var(--mono);font-size:9px;letter-spacing:1px;cursor:pointer;transition:all 0.2s;background:transparent;}
+.ac-btn-view{border-color:var(--blue);color:var(--blue);}
+.ac-btn-view:hover{background:rgba(0,170,255,0.1);}
+.new-pulse{position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--red);animation:blink 0.5s step-end infinite;}
+
+.detail-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;width:100%;}
+.detail-top{flex:1;overflow-y:auto;padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px;align-content:start;}
+.detail-top::-webkit-scrollbar{width:3px;}
+.detail-top::-webkit-scrollbar-thumb{background:var(--border2);}
+
+.empty-state{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:16px;color:var(--text2);}
+.empty-icon{font-size:60px;opacity:0.3;}
+.empty-title{font-family:var(--head);font-size:20px;letter-spacing:2px;}
+
+.d-card{background:var(--bg2);border:1px solid var(--border);padding:16px;position:relative;overflow:hidden;}
+.d-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;}
+.d-card-red::before{background:linear-gradient(180deg,var(--red),transparent);}
+.d-card-green::before{background:linear-gradient(180deg,var(--green),transparent);}
+.d-card-blue::before{background:linear-gradient(180deg,var(--blue),transparent);}
+.d-card-amber::before{background:linear-gradient(180deg,var(--amber),transparent);}
+.d-card-purple::before{background:linear-gradient(180deg,var(--purple),transparent);}
+.d-card-teal::before{background:linear-gradient(180deg,var(--teal),transparent);}
+.d-card-full{grid-column:1/-1;}
+.dlabel{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.dlabel::before{content:'//';color:var(--blue);}
+
+.etype-big{font-family:var(--head);font-size:28px;font-weight:700;letter-spacing:2px;color:var(--red);margin:4px 0;}
+.etype-en{font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:2px;}
+
+.patient-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.p-item{display:flex;flex-direction:column;gap:3px;}
+.p-label{font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--text2);}
+.p-value{font-family:var(--mono);font-size:16px;font-weight:bold;color:var(--text);}
+
+.symp-list{display:flex;flex-wrap:wrap;gap:6px;}
+.symp-badge{font-family:var(--tel);font-size:11px;padding:4px 10px;background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.3);color:var(--amber);}
+.symp-badge-en{font-family:var(--mono);font-size:9px;padding:3px 8px;background:rgba(255,170,0,0.05);border:1px solid rgba(255,170,0,0.2);color:var(--amber);letter-spacing:0.5px;}
+
+.eta-display{text-align:center;padding:12px;}
+.eta-num{font-family:var(--mono);font-size:36px;font-weight:bold;color:var(--red);line-height:1;}
+.eta-unit{font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:2px;margin-top:4px;}
+.eta-bar-wrap{margin-top:10px;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.eta-bar-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--amber),var(--red));border-radius:2px;transition:width 1s ease;}
+
+.ai-panel{background:linear-gradient(135deg,rgba(170,85,255,0.05),rgba(0,170,255,0.05));border:1px solid rgba(170,85,255,0.3);padding:14px;}
+.ai-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.ai-icon{font-size:16px;}
+.ai-title{font-family:var(--head);font-size:13px;font-weight:700;letter-spacing:1px;}
+.ai-badge{font-family:var(--mono);font-size:8px;padding:2px 8px;background:rgba(170,85,255,0.2);border:1px solid var(--purple);color:var(--purple);letter-spacing:1px;}
+.ai-text{font-size:12px;line-height:1.8;color:var(--text);}
+.ai-step{display:flex;gap:8px;padding:6px 8px;background:rgba(255,255,255,0.03);border-left:2px solid var(--purple);margin-top:5px;font-size:11px;line-height:1.6;}
+.step-n{color:var(--purple);font-family:var(--mono);font-size:10px;flex-shrink:0;}
+.ai-warn{margin-top:8px;padding:5px 8px;background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.3);font-size:10px;color:var(--amber);font-family:var(--mono);}
+
+.action-row{display:flex;gap:10px;flex-wrap:wrap;}
+.act-btn{flex:1;min-width:120px;padding:10px 14px;border:1px solid;font-family:var(--head);font-size:14px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s;background:transparent;display:flex;align-items:center;justify-content:center;gap:8px;}
+.act-btn-ready{border-color:var(--green);color:var(--green);}
+.act-btn-ready:hover{background:rgba(0,232,122,0.1);box-shadow:0 0 20px rgba(0,232,122,0.2);}
+.act-btn-reject{border-color:var(--red);color:var(--red);}
+.act-btn-reject:hover{background:rgba(255,26,46,0.1);}
+.act-btn-icu{border-color:var(--purple);color:var(--purple);}
+.act-btn-icu:hover{background:rgba(170,85,255,0.1);}
+
+.prep-list{display:flex;flex-direction:column;gap:6px;}
+.prep-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);cursor:pointer;transition:all 0.2s;font-size:12px;}
+.prep-item:hover{border-color:var(--border2);}
+.prep-item.done{border-color:var(--green);background:rgba(0,232,122,0.05);color:var(--green);}
+.prep-cb{width:16px;height:16px;border:1px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;transition:all 0.15s;}
+.prep-item.done .prep-cb{background:var(--green);color:#000;}
+
+.notif-btn{position:relative;background:transparent;border:1px solid var(--border2);padding:4px 10px;color:var(--text);cursor:pointer;font-family:var(--mono);font-size:12px;display:flex;align-items:center;gap:6px;transition:all 0.2s;}
+.notif-btn:hover{border-color:var(--border2);}
+.notif-count{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--red);color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);}
+
+.sound-btn{background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--text2);cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:1px;transition:all 0.2s;}
+.sound-btn.on{color:var(--green);border-color:var(--green);}
+
+.lang-btn{background:transparent;border:1px solid var(--blue);padding:4px 10px;color:var(--blue);cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:1px;transition:all 0.2s;}
+.lang-btn:hover{background:rgba(0,170,255,0.1);}
+
+.amb-info{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.amb-i{display:flex;flex-direction:column;gap:2px;}
+.amb-l{font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--text2);}
+.amb-v{font-family:var(--mono);font-size:13px;font-weight:bold;}
+
+.status-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;font-family:var(--mono);font-size:9px;letter-spacing:1px;}
+.status-pill.active{border:1px solid var(--red);color:var(--red);background:rgba(255,26,46,0.1);}
+.status-pill.dispatched{border:1px solid var(--amber);color:var(--amber);background:rgba(255,170,0,0.1);}
+.status-pill.arrived{border:1px solid var(--green);color:var(--green);background:rgba(0,232,122,0.1);}
+
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid var(--green);padding:10px 16px;font-family:var(--mono);font-size:11px;color:var(--green);letter-spacing:1px;transform:translateY(80px);transition:transform 0.3s;z-index:500;max-width:320px;}
+.toast.on{transform:translateY(0);}
+.toast.warn{border-color:var(--amber);color:var(--amber);}
+.toast.err{border-color:var(--red);color:var(--red);}
+.alert-flash{position:fixed;inset:0;background:rgba(255,26,46,0.06);pointer-events:none;z-index:200;opacity:0;transition:opacity 0.3s;}
+.alert-flash.show{opacity:1;}
+
+.footer{text-align:center;padding:12px;background:var(--bg3);border-top:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text2);position:relative;z-index:100;letter-spacing:1px;}
+
+@media(max-width:900px){
+  .main-wrap{flex-direction:column;height:auto;}
+  .alerts-panel{width:100%;max-width:320px;}
+  .detail-top{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+  
+<div class="alert-flash" id="alert-flash"></div>
+
+<header class="hdr">
+  <div class="hdr-left">
+    <!-- NEW MENU BUTTON -->
+    <button class="menu-btn" onclick="toggleMenu()">
+      <span style="font-size:18px">☰</span> 
+      <span class="lang" data-te="మెనూ" data-en="MENU">మెనూ</span>
+    </button>
+    <div class="hdr-icon" style="margin-left:10px;">🏥</div>
+    <div>
+      <div class="hdr-title lang" data-te="ఆసుపత్రి అత్యవసర డాష్‌బోర్డ్" data-en="HOSPITAL EMERGENCY DASHBOARD">ఆసుపత్రి అత్యవసర డాష్‌బోర్డ్</div>
+      <div class="hdr-sub lang" data-te="స్మార్ట్ ట్రాఫిక్ నావిగేటర్ — స్వీకరించే ఎండ్" data-en="SMART TRAFFIC NAVIGATOR — RECEIVING END">స్మార్ట్ ట్రాఫిక్ నావిగేటర్ — స్వీకరించే ఎండ్</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <button class="lang-btn" id="lang-btn" onclick="toggleLanguage()">🌐 ENG</button>
+    <button class="sound-btn on" id="sound-btn" onclick="toggleSound()">🔔 సౌండ్ ఆన్</button>
+    <button class="notif-btn" id="notif-btn" onclick="toggleMenu()">
+      <span class="lang" data-te="🔔 అలర్ట్స్" data-en="🔔 ALERTS">🔔 అలర్ట్స్</span>
+      <span class="notif-count" id="notif-count">0</span>
+    </button>
+    <span class="badge badge-green"><span class="live-dot"></span><span class="lang" data-te="లైవ్" data-en="LIVE">లైవ్</span></span>
+    <span class="badge badge-blue" id="db-status" class="lang" data-te="కనెక్ట్ అవుతోంది..." data-en="DB CONNECTING...">కనెక్ట్ అవుతోంది...</span>
+  </div>
+</header>
+
+<div class="status-bar">
+  <div class="sb-item lang" data-te="🏥 అపోలో ఆసుపత్రి — ICU వింగ్" data-en="🏥 Apollo Hospital — ICU Wing">🏥 అపోలో ఆసుపత్రి — ICU వింగ్</div>
+  <div class="sb-item"><span class="lang" data-te="డేటాబేస్:" data-en="Firebase:">డేటాబేస్:</span> <b id="fb-status" style="color:var(--text2)">Initializing...</b></div>
+  <div class="sb-item"><span class="lang" data-te="కలెక్షన్:" data-en="Collection:">కలెక్షన్:</span> <b style="color:var(--amber)">active_emergencies</b></div>
+  <div class="sb-item"><span class="lang" data-te="యాక్టివ్ అలర్ట్స్:" data-en="Active Alerts:">యాక్టివ్ అలర్ట్స్:</span> <b id="active-count" style="color:var(--red)">0</b><span class="alert-count-badge" id="alert-badge" style="display:none">కొత్తవి</span></div>
+  <div class="sb-item" style="margin-left:auto;"><span class="lang" data-te="చివరి అప్‌డేట్:" data-en="Last Update:">చివరి అప్‌డేట్:</span> <b id="last-update" style="color:var(--green)">--</b></div>
+</div>
+
+<div class="main-wrap">
+  
+  <div class="panel-overlay" id="panel-overlay" onclick="toggleMenu()"></div>
+
+  <div class="alerts-panel">
+    <div class="ap-head">
+      <div>
+        <div class="ap-title lang" data-te="వస్తున్న అత్యవసర కేసులు" data-en="INCOMING EMERGENCIES">వస్తున్న అత్యవసర కేసులు</div>
+        <div class="ap-sub" id="alerts-sub">Firebase real-time sync active...</div>
+      </div>
+      <button onclick="toggleMenu()" style="background:transparent;border:none;color:var(--text2);font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div class="filter-row">
+      <button class="f-btn active lang" onclick="filterAlerts('all',this)" data-te="అన్ని" data-en="ALL">అన్ని</button>
+      <button class="f-btn lang" onclick="filterAlerts('EVALUATING',this)" data-te="కొత్తవి" data-en="NEW">కొత్తవి</button>
+      <button class="f-btn lang" onclick="filterAlerts('DISPATCHED_TO_HOSPITAL',this)" data-te="మార్గంలో" data-en="EN ROUTE">మార్గంలో</button>
+      <button class="f-btn lang" onclick="filterAlerts('arrived',this)" data-te="చేరుకున్నారు" data-en="ARRIVED">చేరుకున్నారు</button>
+    </div>
+    <div class="alerts-list" id="alerts-list">
+      <div style="text-align:center;padding:40px 20px;color:var(--text2);font-family:var(--mono);font-size:11px;letter-spacing:1px;">
+        <div style="font-size:32px;margin-bottom:12px">📡</div>
+        <span class="lang" data-te="Firebase కి కనెక్ట్ అవుతోంది..." data-en="Connecting to Firebase...">Firebase కి కనెక్ట్ అవుతోంది...</span><br>
+        <span style="font-size:9px;opacity:0.6" class="lang" data-te="అత్యవసర సందేశాల కోసం వేచి ఉంది..." data-en="Waiting for emergency alerts...">అత్యవసర సందేశాల కోసం వేచి ఉంది...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-panel">
+    <div class="detail-top" id="detail-top">
+
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">🚑</div>
+        <div class="empty-title lang" data-te="స్టాండ్‌బై మోడ్" data-en="STANDBY MODE">స్టాండ్‌బై మోడ్</div>
+        <div class="empty-sub">
+          <span class="lang" data-te="అంబులెన్స్ నుండి అత్యవసర సందేశం కోసం వేచి ఉంది..." data-en="Waiting for emergency alert from ambulance EMT">అంబులెన్స్ నుండి అత్యవసర సందేశం కోసం వేచి ఉంది...</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+  <span class="lang" data-te="|స్మార్ట్ ట్రాఫిక్ నావిగేటర్ © 2026 |" |data-en="Smart Traffic Navigator © 2026 |">|స్మార్ట్ ట్రాఫిక్ నావిగేటర్ © 2026 | డిజైన్ & డెవలప్: అరుణ్ కాశీ దొమ్మేటి|</span>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<audio id="alert-audio" preload="auto">
+  <source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+// FIREBASE CONFIG
+const firebaseConfig = {
+  apiKey: "AIzaSyAhDKZsyio33xZjlLu9wrpP6FvCz0nx4Qo",
+  authDomain: "emt-ambulance-case-data.firebaseapp.com",
+  databaseURL: "https://emt-ambulance-case-data-default-rtdb.firebaseio.com",
+  projectId: "emt-ambulance-case-data",
+  storageBucket: "emt-ambulance-case-data.firebasestorage.app",
+  messagingSenderId: "371262249472",
+  appId: "1:371262249472:web:a388063d11d871409ed6e5",
+  measurementId: "G-NG8Q897PTS"
+};
+
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.database();
+
+// STATE
+let allAlerts = {};
+let selectedId = null;
+let filterMode = 'all';
+let soundOn = true;
+let isFirstLoad = true;
+let currentLang = 'te';
+
+// MENU TOGGLE LOGIC
+function toggleMenu() {
+  const panel = document.querySelector('.alerts-panel');
+  const overlay = document.getElementById('panel-overlay');
+  panel.classList.toggle('open');
+  overlay.classList.toggle('show');
+}
+
+// PREPARATION CHECKLIST 
+const PREP_CHECKLIST = {
+  cardiac: [
+    {te: 'కార్డియాక్ ICU రూమ్ సిద్ధం చేయండి', en: 'Prepare Cardiac ICU Room'},
+    {te: 'ఆక్సిజన్ సిలిండర్ + మాస్క్ రెడీ చేయండి', en: 'Ready Oxygen Cylinder + Mask'},
+    {te: 'ECG మెషిన్ బెడ్ సైడ్ లో పెట్టండి', en: 'Place ECG Machine at bedside'},
+    {te: 'IV Cannula + Saline రెడీ చేయండి', en: 'Ready IV Cannula + Saline'},
+    {te: 'Defibrillator చెక్ చేయండి', en: 'Check Defibrillator'},
+    {te: 'కార్డియాలజిస్ట్ డాక్టర్ కి కాల్ చేయండి', en: 'Call Cardiologist'},
+    {te: 'Aspirin + Nitroglycerin స్టాక్ చెక్ చేయండి', en: 'Check Aspirin + Nitroglycerin stock'}
+  ],
+  trauma: [
+    {te: 'Trauma Bay రెడీ చేయండి', en: 'Ready Trauma Bay'},
+    {te: 'బ్లడ్ బ్యాంక్ అలర్ట్ చేయండి (O- రెడీ)', en: 'Alert Blood Bank (O- Ready)'},
+    {te: 'ఆర్థోపెడిక్ సర్జన్ కి కాల్ చేయండి', en: 'Call Orthopedic Surgeon'},
+    {te: 'CT స్కాన్ రూమ్ క్లియర్ చేయండి', en: 'Clear CT Scan Room'},
+    {te: 'Pressure dressings + Tourniquet రెడీ', en: 'Ready Pressure dressings + Tourniquet'},
+    {te: 'వెన్నుముక brace రెడీ చేయండి', en: 'Ready Spinal brace'},
+    {te: 'Operation Theatre on standby', en: 'Operation Theatre on standby'}
+  ],
+  stroke: [
+    {te: 'Neurology team alert చేయండి', en: 'Alert Neurology team'},
+    {te: 'CT Scan రూమ్ రెడీ చేయండి', en: 'Ready CT Scan Room'},
+    {te: 'Stroke protocol activate చేయండి', en: 'Activate Stroke protocol'},
+    {te: 'IV tPA drug రెడీ చేయండి (if indicated)', en: 'Ready IV tPA drug (if indicated)'},
+    {te: 'నిద్రపోయే గది లేకుండా patient ని monitor చేసే room', en: 'Quiet monitoring room'},
+    {te: 'రక్తంలో చక్కెర చెక్ equipment రెడీ', en: 'Ready Blood sugar check equipment'},
+    {te: 'Neurosurgeon inform చేయండి', en: 'Inform Neurosurgeon'}
+  ],
+  burns: [
+    {te: 'Burns ICU రెడీ చేయండి', en: 'Ready Burns ICU'},
+    {te: 'Sterile dressings + Burn cream రెడీ', en: 'Ready Sterile dressings + Burn cream'},
+    {te: 'IV fluid therapy సెట్ రెడీ', en: 'Ready IV fluid therapy set'},
+    {te: 'Airway management kit రెడీ', en: 'Ready Airway management kit'},
+    {te: 'Plastic surgeon alert చేయండి', en: 'Alert Plastic surgeon'},
+    {te: 'Pain management drugs రెడీ', en: 'Ready Pain management drugs'},
+    {te: 'Tetanus injection రెడీ', en: 'Ready Tetanus injection'}
+  ],
+  respiratory: [
+    {te: 'ICU ventilator రెడీ చేయండి', en: 'Ready ICU ventilator'},
+    {te: 'ఆక్సిజన్ supply maximum flow రెడీ', en: 'Ready Oxygen supply max flow'},
+    {te: 'Nebulizer రెడీ చేయండి', en: 'Ready Nebulizer'},
+    {te: 'Pulmonologist alert చేయండి', en: 'Alert Pulmonologist'},
+    {te: 'Bronchodilator drugs రెడీ', en: 'Ready Bronchodilator drugs'},
+    {te: 'Chest X-Ray రూమ్ రెడీ', en: 'Ready Chest X-Ray room'},
+    {te: 'Intubation kit రెడీ చేయండి', en: 'Ready Intubation kit'}
+  ],
+  accident: [
+    {te: 'Trauma resuscitation room రెడీ', en: 'Ready Trauma resuscitation room'},
+    {te: 'Orthopedic + Surgeon alert', en: 'Alert Orthopedic + Surgeon'},
+    {te: 'Blood bank O- రెడీ', en: 'Blood bank O- Ready'},
+    {te: 'CT scan రెడీ', en: 'Ready CT scan'},
+    {te: 'Spinal board + Collar రెడీ', en: 'Ready Spinal board + Collar'},
+    {te: 'Operation theatre on standby', en: 'Operation theatre on standby'},
+    {te: 'Neurosurgeon inform చేయండి', en: 'Inform Neurosurgeon'}
+  ],
+  obstetric: [
+    {te: 'Labour room + OT రెడీ', en: 'Ready Labour room + OT'},
+    {te: 'Gynaecologist + Obstetrician alert', en: 'Alert Gynaecologist + Obstetrician'},
+    {te: 'Neonatologist + NICU రెడీ', en: 'Ready Neonatologist + NICU'},
+    {te: 'Blood bank రెడీ', en: 'Ready Blood bank'},
+    {te: 'Emergency C-section kit రెడీ', en: 'Ready Emergency C-section kit'},
+    {te: 'Paediatric team standby', en: 'Paediatric team standby'},
+    {te: 'Magnesium sulfate రెడీ (for preeclampsia)', en: 'Ready Magnesium sulfate'}
+  ],
+  poisoning: [
+    {te: 'Emergency detox bay రెడీ', en: 'Ready Emergency detox bay'},
+    {te: 'Gastric lavage kit రెడీ', en: 'Ready Gastric lavage kit'},
+    {te: 'Antidote drugs (Atropine, Naloxone) రెడీ', en: 'Ready Antidote drugs'},
+    {te: 'ICU bed రెడీ', en: 'Ready ICU bed'},
+    {te: 'Toxicologist/Physician alert', en: 'Alert Toxicologist/Physician'},
+    {te: 'Activated charcoal రెడీ', en: 'Ready Activated charcoal'},
+    {te: 'IV fluid + supportive care రెడీ', en: 'Ready IV fluid + supportive care'}
+  ],
+  pediatric: [
+    {te: 'Paediatric ward/PICU రెడీ', en: 'Ready Paediatric ward/PICU'},
+    {te: 'Paediatrician alert చేయండి', en: 'Alert Paediatrician'},
+    {te: 'Paediatric size equipment రెడీ', en: 'Ready Paediatric size equipment'},
+    {te: 'Fever management drugs రెడీ', en: 'Ready Fever management drugs'},
+    {te: 'IV cannula (paediatric) రెడీ', en: 'Ready IV cannula (paediatric)'},
+    {te: 'Paediatric ventilator రెడీ', en: 'Ready Paediatric ventilator'},
+    {te: 'Blood tests redy (CBC, CRP)', en: 'Ready Blood tests (CBC, CRP)'}
+  ],
+  psychiatric: [
+    {te: 'Psychiatric secure room రెడీ', en: 'Ready Psychiatric secure room'},
+    {te: 'Psychiatrist + Security alert', en: 'Alert Psychiatrist + Security'},
+    {te: 'Sedation drugs రెడీ (Haloperidol)', en: 'Ready Sedation drugs'},
+    {te: 'Restraint equipment రెడీ (if needed)', en: 'Ready Restraint equipment'},
+    {te: 'Mental health nurse alert', en: 'Alert Mental health nurse'},
+    {te: 'Family contact number తీసుకోండి', en: 'Get Family contact number'},
+    {te: 'Crisis counselor available', en: 'Crisis counselor available'}
+  ],
+  drowning: [
+    {te: 'Emergency resus room రెడీ', en: 'Ready Emergency resus room'},
+    {te: 'CPR equipment రెడీ', en: 'Ready CPR equipment'},
+    {te: 'Warming blankets + IV fluids రెడీ', en: 'Ready Warming blankets + IV fluids'},
+    {te: 'Pulmonologist alert', en: 'Alert Pulmonologist'},
+    {te: 'ICU bed రెడీ', en: 'Ready ICU bed'},
+    {te: 'Chest X-Ray రెడీ', en: 'Ready Chest X-Ray'},
+    {te: 'Antibiotics for aspiration pneumonia రెడీ', en: 'Ready Antibiotics'}
+  ],
+  diabetic: [
+    {te: 'Emergency bay రెడీ', en: 'Ready Emergency bay'},
+    {te: 'Blood glucose monitoring రెడీ', en: 'Ready Blood glucose monitoring'},
+    {te: 'IV Dextrose 50% రెడీ', en: 'Ready IV Dextrose 50%'},
+    {te: 'Insulin + Normal saline రెడీ', en: 'Ready Insulin + Normal saline'},
+    {te: 'Endocrinologist alert', en: 'Alert Endocrinologist'},
+    {te: 'Ketoacidosis protocol రెడీ', en: 'Ready Ketoacidosis protocol'},
+    {te: 'Cardiac monitor రెడీ', en: 'Ready Cardiac monitor'}
+  ],
+  default: [
+    {te: 'Emergency bay రెడీ చేయండి', en: 'Ready Emergency bay'},
+    {te: 'ఆక్సిజన్ + IV access రెడీ', en: 'Ready Oxygen + IV access'},
+    {te: 'Concerned doctor alert చేయండి', en: 'Alert Concerned doctor'},
+    {te: 'Patient monitoring equipment రెడీ', en: 'Ready Patient monitoring equipment'},
+    {te: 'Emergency drugs kit చెక్ చేయండి', en: 'Check Emergency drugs kit'}
+  ]
+};
+
+// INIT — Connect Firebase
+window.onload = () => {
+  document.querySelectorAll('.lang').forEach(el => {
+     el.innerHTML = el.getAttribute('data-te');
+  });
+  connectFirebase();
+};
+
+// LANGUAGE SWITCHER
+function toggleLanguage() {
+  currentLang = currentLang === 'te' ? 'en' : 'te';
+  
+  const btn = document.getElementById('lang-btn');
+  if(btn) btn.innerHTML = currentLang === 'te' ? '🌐 ENG' : '🌐 TEL';
+
+  document.querySelectorAll('.lang').forEach(el => {
+    if (el.getAttribute(`data-${currentLang}`)) {
+      el.innerHTML = el.getAttribute(`data-${currentLang}`);
+    }
+  });
+
+  const sndBtn = document.getElementById('sound-btn');
+  if (sndBtn) {
+    const onTxt = currentLang === 'te' ? '🔔 సౌండ్ ఆన్' : '🔔 SOUND ON';
+    const offTxt = currentLang === 'te' ? '🔕 సౌండ్ ఆఫ్' : '🔕 SOUND OFF';
+    sndBtn.textContent = soundOn ? onTxt : offTxt;
+  }
+
+  const fbStatus = document.getElementById('fb-status');
+  if (fbStatus.textContent.includes('LIVE') || fbStatus.textContent.includes('లైవ్')) {
+    fbStatus.textContent = currentLang === 'te' ? '✅ లైవ్ — రియల్-టైమ్ సింక్' : '✅ LIVE — Real-time sync';
+  } else if (fbStatus.textContent.includes('failed') || fbStatus.textContent.includes('విఫలమైంది')) {
+    fbStatus.textContent = currentLang === 'te' ? '❌ కనెక్షన్ విఫలమైంది' : '❌ Connection failed';
+  } else {
+    fbStatus.textContent = currentLang === 'te' ? 'కనెక్ట్ అవుతోంది...' : 'Connecting...';
+  }
+
+  const dbStatus = document.getElementById('db-status');
+  if (dbStatus) {
+    dbStatus.textContent = currentLang === 'te' ? 'డేటాబేస్ లైవ్' : 'DB LIVE';
+  }
+
+  document.getElementById('alert-badge').textContent = currentLang === 'te' ? 'కొత్తవి' : 'NEW';
+
+  renderAlertsList();
+  if (selectedId) selectAlert(selectedId, false); // Don't close menu just for lang change
+}
+
+function connectFirebase() {
+  document.getElementById('fb-status').textContent = currentLang === 'te' ? 'కనెక్ట్ అవుతోంది...' : 'Connecting...';
+  document.getElementById('fb-status').style.color = 'var(--amber)';
+
+  db.ref('active_emergencies').on('value', (snapshot) => {
+    document.getElementById('fb-status').textContent = currentLang === 'te' ? '✅ లైవ్ — రియల్-టైమ్ సింక్' : '✅ LIVE — Real-time sync';
+    document.getElementById('fb-status').style.color = 'var(--green)';
+    document.getElementById('db-status').textContent = currentLang === 'te' ? 'డేటాబేస్ లైవ్' : 'DB LIVE';
+    document.getElementById('db-status').style.color = 'var(--green)';
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+
+    const data = snapshot.val();
+    const prevCount = Object.keys(allAlerts).length;
+
+    if (!data) {
+      allAlerts = {};
+      renderAlertsList();
+      selectedId = null;
+      document.getElementById('detail-top').innerHTML = `
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">🚑</div>
+          <div class="empty-title">${currentLang === 'te' ? 'స్టాండ్‌బై మోడ్' : 'STANDBY MODE'}</div>
+          <div class="empty-sub">${currentLang === 'te' ? 'అంబులెన్స్ నుండి అత్యవసర సందేశం కోసం వేచి ఉంది...' : 'Waiting for emergency alert from ambulance EMT'}</div>
+        </div>
+      `;
+      return;
+    }
+
+    allAlerts = data;
+    const newCount = Object.keys(allAlerts).length;
+    
+    let shouldAutoSelect = false;
+
+    if (!isFirstLoad && newCount > prevCount) {
+      triggerNewAlertEffect();
+      shouldAutoSelect = true; // Switch to the brand new alert immediately
+    } else if (isFirstLoad) {
+      shouldAutoSelect = true; // First time loading, display the latest alert directly
+    }
+
+    isFirstLoad = false;
+    renderAlertsList();
+    updateCounts();
+
+    if (shouldAutoSelect) {
+      const entries = Object.entries(allAlerts);
+      if(entries.length > 0) {
+        entries.sort((a, b) => {
+          const tA = new Date(a[1].timestamp || 0).getTime();
+          const tB = new Date(b[1].timestamp || 0).getTime();
+          return tB - tA;
+        });
+        selectAlert(entries[0][0], false); // Load newest automatically (menu stays as is)
+      }
+    } else if (selectedId && allAlerts[selectedId]) {
+      selectAlert(selectedId, false); // Just refresh current alert data without closing menu
+    }
+
+  }, (error) => {
+    document.getElementById('fb-status').textContent = currentLang === 'te' ? '❌ కనెక్షన్ విఫలమైంది' : '❌ Connection failed';
+    document.getElementById('fb-status').style.color = 'var(--red)';
+    toast('Firebase connection failed: ' + error.message, 'err');
+  });
+}
+
+// RENDER ALERTS LIST
+function renderAlertsList() {
+  const list = document.getElementById('alerts-list');
+  const entries = Object.entries(allAlerts);
+
+  if (entries.length === 0) {
+    list.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;color:var(--text2);font-family:var(--mono);font-size:11px;letter-spacing:1px;">
+        <div style="font-size:32px;margin-bottom:12px">✅</div>
+        ${currentLang === 'te' ? 'అత్యవసర సందేశాలు ఏమీ లేవు' : 'No active emergencies'}<br>
+        <span style="font-size:9px;opacity:0.6">${currentLang === 'te' ? 'అలర్ట్స్ కోసం వెతుకుతోంది...' : 'No active emergencies. Listening...'}</span>
+      </div>`;
+    document.getElementById('alerts-sub').textContent = currentLang === 'te' ? '0 అలర్ట్‌లు' : '0 alerts shown';
+    return;
+  }
+
+  entries.sort((a, b) => {
+    const tA = new Date(a[1].timestamp || 0).getTime();
+    const tB = new Date(b[1].timestamp || 0).getTime();
+    return tB - tA;
+  });
+
+  const filtered = filterMode === 'all'
+    ? entries
+    : entries.filter(([, v]) => v.status === filterMode);
+
+  list.innerHTML = '';
+  filtered.forEach(([id, alert]) => {
+    const card = buildAlertCard(id, alert);
+    list.appendChild(card);
+  });
+
+  document.getElementById('alerts-sub').textContent = currentLang === 'te' 
+    ? `${entries.length} లో ${filtered.length} అలర్ట్‌లు చూపబడుతున్నాయి`
+    : `${filtered.length} of ${entries.length} alerts shown`;
+}
+
+function buildAlertCard(id, a) {
+  const div = document.createElement('div');
+  const statusClass = a.status === 'DISPATCHED_TO_HOSPITAL' ? 'status-dispatched'
+    : a.status === 'arrived' ? 'status-arrived' : '';
+  const isNew = a.status === 'EVALUATING';
+  div.className = `alert-card ${statusClass} ${selectedId === id ? 'selected' : ''}`;
+
+  const typeLabel = a.emergency_type?.english || a.type_id || 'Unknown';
+  const typeTe = a.emergency_type?.telugu || typeLabel;
+  const age = a.patient?.age || '--';
+  const gender = a.patient?.gender || '--';
+  const ambId = a.ambulance_id || 'AMB-001';
+  const time = a.timestamp ? new Date(a.timestamp).toLocaleTimeString() : '--';
+  const sympCount = a.symptoms ? a.symptoms.length : 0;
+  const hosp = a.hospital_details?.name || '--';
+  const eta = a.hospital_details?.eta_minutes || '--';
+
+  const statusPill = a.status === 'DISPATCHED_TO_HOSPITAL'
+    ? `<span class="status-pill dispatched">● ${currentLang === 'te' ? 'మార్గంలో' : 'EN ROUTE'}</span>`
+    : a.status === 'arrived'
+    ? `<span class="status-pill arrived">● ${currentLang === 'te' ? 'చేరుకున్నారు' : 'ARRIVED'}</span>`
+    : `<span class="status-pill active">● ${currentLang === 'te' ? 'కొత్త అలర్ట్' : 'NEW ALERT'}</span>`;
+
+  div.innerHTML = `
+    ${isNew ? '<div class="new-pulse"></div>' : ''}
+    <div class="ac-top">
+      <div class="ac-type">${currentLang === 'te' ? typeTe : typeLabel}</div>
+      <div class="ac-time">${time}</div>
+    </div>
+    <div class="ac-id">📡 ${ambId} | ${statusPill}</div>
+    <div class="ac-stats">
+      <div class="ac-stat">
+        <div class="ac-stat-l">${currentLang === 'te' ? 'వయసు' : 'AGE'}</div>
+        <div class="ac-stat-v c-blue">${age}Y / ${gender === 'Male' ? '♂' : '♀'}</div>
+      </div>
+      <div class="ac-stat">
+        <div class="ac-stat-l">${currentLang === 'te' ? 'లక్షణాలు' : 'SYMPTOMS'}</div>
+        <div class="ac-stat-v c-amb">${sympCount}</div>
+      </div>
+      <div class="ac-stat">
+        <div class="ac-stat-l">${currentLang === 'te' ? 'గమ్య సమయం (ETA)' : 'ETA'}</div>
+        <div class="ac-stat-v c-red">${eta !== '--' ? eta + ' min' : 'Pending'}</div>
+      </div>
+    </div>
+    <div class="ac-symp">
+      ${(a.symptoms || []).slice(0, 3).map(s =>
+        `<span class="symp-tag">${currentLang === 'te' ? (s.telugu || s.english || s) : (s.english || s.telugu || s)}</span>`
+      ).join('')}
+      ${sympCount > 3 ? `<span class="symp-tag">+${sympCount - 3}</span>` : ''}
+    </div>
+    <div class="ac-action-row">
+      <!-- Clicking "View Details" closes the menu so the user can see the dashboard -->
+      <button class="ac-btn ac-btn-view" onclick="selectAlert('${id}', true)">${currentLang === 'te' ? 'వివరాలు చూడండి' : 'VIEW DETAILS'}</button>
+    </div>`;
+
+  return div;
+}
+
+// SELECT ALERT — Show detail view
+function selectAlert(id, autoCloseMenu = true) {
+  selectedId = id;
+  const a = allAlerts[id];
+  if (!a) return;
+
+  // Auto close menu when a case is selected manually
+  if (autoCloseMenu) {
+    document.querySelector('.alerts-panel').classList.remove('open');
+    const overlay = document.getElementById('panel-overlay');
+    if(overlay) overlay.classList.remove('show');
+  }
+
+  renderAlertsList(); 
+
+  const detail = document.getElementById('detail-top');
+  const emType = a.type_id || 'default';
+  const prepList = PREP_CHECKLIST[emType] || PREP_CHECKLIST.default;
+
+  const sympHtml = (a.symptoms || []).map(s =>
+    `<span class="symp-badge">${currentLang === 'te' ? (s.telugu || '') : (s.english || s)}</span>
+     <span class="symp-badge-en">${currentLang === 'te' ? (s.english || s) : (s.telugu || '')}</span>`
+  ).join('');
+
+  const aiText = a.ai_suggestions || '';
+  const aiLines = aiText.split('\n').filter(l => l.trim());
+  let aiHtml = '';
+  aiLines.forEach(line => {
+    line = line.trim();
+    if (/^[1-5][\.\)]/.test(line)) {
+      aiHtml += `<div class="ai-step"><span class="step-n">${line[0]}.</span><span>${line.slice(2).trim()}</span></div>`;
+    } else if (line.toLowerCase().includes('warning') || line.includes('⚠') || line.includes('హెచ్చరిక')) {
+      aiHtml += `<div class="ai-warn">⚠ ${line.replace(/warning:?/i,'').replace('హెచ్చరిక:','').trim()}</div>`;
+    }
+  });
+  if (!aiHtml && aiText) aiHtml = `<div style="font-size:11px;line-height:1.8">${aiText}</div>`;
+
+  const eta = a.hospital_details?.eta_minutes || '--';
+  const etaBarWidth = eta !== '--' ? Math.min(100, (eta / 30) * 100) : 50;
+
+  const hospInfo = a.hospital_details?.name
+    ? `<div style="margin-top:8px;padding:8px;background:rgba(0,232,122,0.05);border:1px solid rgba(0,232,122,0.2);">
+         <div style="font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:2px;">${currentLang === 'te' ? 'ఎంపిక చేసిన ఆసుపత్రి' : 'SELECTED HOSPITAL'}</div>
+         <div style="font-family:var(--head);font-size:14px;font-weight:700;color:var(--green);margin-top:3px;">🏥 ${a.hospital_details.name}</div>
+         <div style="font-family:var(--mono);font-size:10px;color:var(--text2);margin-top:3px;">
+           ETA: ${a.hospital_details.eta_minutes} min | Dist: ${a.hospital_details.distance_km} km
+         </div>
+       </div>` : '';
+
+  detail.innerHTML = `
+
+    <!-- ROW 1: Emergency Type + ETA -->
+    <div class="d-card d-card-red">
+      <div class="dlabel">${currentLang === 'te' ? 'అత్యవసర పరిస్థితి రకం' : 'EMERGENCY TYPE'}</div>
+      <div class="etype-big">${currentLang === 'te' ? (a.emergency_type?.telugu || 'Unknown') : (a.emergency_type?.english || 'Unknown')}</div>
+      <div class="etype-en">${currentLang === 'te' ? (a.emergency_type?.english || '') : (a.emergency_type?.telugu || '')}</div>
+      <div style="margin-top:10px;">
+        <span class="status-pill ${a.status === 'DISPATCHED_TO_HOSPITAL' ? 'dispatched' : a.status === 'arrived' ? 'arrived' : 'active'}">
+          ● ${a.status || 'EVALUATING'}
+        </span>
+      </div>
+      ${hospInfo}
+    </div>
+
+    <div class="d-card d-card-red">
+      <div class="dlabel">${currentLang === 'te' ? 'గమ్య సమయం (ETA) & రాక' : 'ETA & ARRIVAL'}</div>
+      <div class="eta-display">
+        <div class="eta-num">${eta}</div>
+        <div class="eta-unit">${currentLang === 'te' ? 'చేరుకోవడానికి నిమిషాలు' : 'MINUTES TO ARRIVAL'}</div>
+        <div class="eta-bar-wrap">
+          <div class="eta-bar-fill" style="width:${etaBarWidth}%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 2: Patient + Ambulance -->
+    <div class="d-card d-card-blue">
+      <div class="dlabel">${currentLang === 'te' ? 'రోగి వివరాలు' : 'PATIENT DETAILS'}</div>
+      <div class="patient-grid">
+        <div class="p-item">
+          <div class="p-label">${currentLang === 'te' ? 'వయసు (AGE)' : 'AGE'}</div>
+          <div class="p-value c-blue">${a.patient?.age || '--'}</div>
+        </div>
+        <div class="p-item">
+          <div class="p-label">${currentLang === 'te' ? 'లింగం (GENDER)' : 'GENDER'}</div>
+          <div class="p-value">${a.patient?.gender === 'Male' ? (currentLang === 'te' ? '♂ పురుషుడు' : '♂ Male') : (currentLang === 'te' ? '♀ స్త్రీ' : '♀ Female')}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-card d-card-amber">
+      <div class="dlabel">${currentLang === 'te' ? 'అంబులెన్స్ సమాచారం' : 'AMBULANCE INFO'}</div>
+      <div class="amb-info">
+        <div class="amb-i"><div class="amb-l">UNIT ID</div><div class="amb-v c-amb">${a.ambulance_id || 'AMB-001'}</div></div>
+        <div class="amb-i"><div class="amb-l">${currentLang === 'te' ? 'వేగం' : 'SPEED'}</div><div class="amb-v">${a.location?.speed || '--'} km/h</div></div>
+        <div class="amb-i"><div class="amb-l">LAT</div><div class="amb-v c-grn" style="font-size:11px">${a.location?.lat || '--'}</div></div>
+        <div class="amb-i"><div class="amb-l">LNG</div><div class="amb-v c-grn" style="font-size:11px">${a.location?.lng || '--'}</div></div>
+      </div>
+      <div style="margin-top:8px;padding:6px 8px;background:rgba(0,232,122,0.05);border:1px solid rgba(0,232,122,0.2);">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--green);">● LoRa 433MHz | FPGA Linked | ${a.lora_status || 'TX_READY'}</div>
+      </div>
+    </div>
+
+    <!-- ROW 3: Symptoms (full width) -->
+    <div class="d-card d-card-amber d-card-full">
+      <div class="dlabel">${currentLang === 'te' ? `లక్షణాలు — ${(a.symptoms || []).length} నమోదు చేయబడ్డాయి` : `SYMPTOMS — ${(a.symptoms || []).length} recorded`}</div>
+      <div class="symp-list">
+        ${sympHtml || `<div style="color:var(--text2);font-size:12px;">${currentLang === 'te' ? 'లక్షణాలు ఏమీ నమోదు కాలేదు' : 'No symptoms recorded'}</div>`}
+      </div>
+    </div>
+
+    <!-- ROW 4: AI Suggestions (full width) -->
+    <div class="d-card d-card-purple d-card-full">
+      <div class="dlabel">${currentLang === 'te' ? 'AI ప్రాథమిక చికిత్స సూచనలు — EMT వద్ద నుండి' : 'AI FIRST AID SUGGESTIONS — FROM EMT'}</div>
+      <div class="ai-panel">
+        <div class="ai-hdr">
+          <span class="ai-icon">🤖</span>
+          <span class="ai-title">Mitra AI — Field Assessment</span>
+          <span class="ai-badge">${currentLang === 'te' ? 'ఆసుపత్రికి చేరే ముందు సంరక్షణ' : 'PRE-HOSPITAL CARE'}</span>
+        </div>
+        <div class="ai-text">
+          ${aiHtml || `<div style="color:var(--text2);font-size:11px;">${currentLang === 'te' ? 'ఈ కేసుకు AI సూచనలు అందుబాటులో లేవు' : 'AI suggestions not available for this case'}</div>`}
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 5: Hospital Preparation Checklist -->
+    <div class="d-card d-card-teal d-card-full">
+      <div class="dlabel">${currentLang === 'te' ? 'ఆసుపత్రి సన్నాహక చెక్‌లిస్ట్ — ' + (a.emergency_type?.telugu || 'అత్యవసర పరిస్థితి') : 'HOSPITAL PREPARATION CHECKLIST — ' + (a.emergency_type?.english || 'Emergency')}</div>
+      <div class="prep-list" id="prep-list-${id}">
+        ${prepList.map((item, i) => `
+          <div class="prep-item" id="prep-${id}-${i}" onclick="togglePrep('${id}', ${i})">
+            <div class="prep-cb">✓</div>
+            <span>${currentLang === 'te' ? item.te : item.en}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--text2);">
+        <span id="prep-progress-${id}">0 / ${prepList.length} ${currentLang === 'te' ? 'పూర్తయ్యాయి' : 'completed'}</span>
+      </div>
+    </div>
+
+    <!-- ROW 6: Actions -->
+    <div class="d-card d-card-green d-card-full">
+      <div class="dlabel">${currentLang === 'te' ? 'ఆసుపత్రి ప్రతిస్పందన చర్యలు' : 'HOSPITAL RESPONSE ACTIONS'}</div>
+      <div class="action-row">
+        <button class="act-btn act-btn-ready" onclick="markReady('${id}', event)">
+          ✅ ${currentLang === 'te' ? 'టీమ్ రెడీ' : 'TEAM READY'}
+        </button>
+        <button class="act-btn act-btn-icu" onclick="notifyICU('${id}')">
+          🏥 ${currentLang === 'te' ? 'ICU కి తెలియజేయండి' : 'NOTIFY ICU'}
+        </button>
+        <button class="act-btn act-btn-reject" onclick="markArrived('${id}', event)">
+          ✓ ${currentLang === 'te' ? 'రోగి చేరుకున్నారు' : 'PATIENT ARRIVED'}
+        </button>
+      </div>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:1px;">
+        ${currentLang === 'te' ? 'రికార్డ్ ID' : 'Record ID'}: <span style="color:var(--amber)">${id}</span>
+      </div>
+    </div>
+  `;
+
+  const emTypeKey = a.type_id || 'default';
+  const total = (PREP_CHECKLIST[emTypeKey] || PREP_CHECKLIST.default).length;
+  let done = 0;
+  
+  for(let i=0; i<total; i++){
+      const key = `${id}-${i}`;
+      if(prepDone[key]) {
+          const el = document.getElementById(`prep-${id}-${i}`);
+          if(el) el.classList.add('done');
+          done++;
+      }
+  }
+  const prog = document.getElementById(`prep-progress-${id}`);
+  if (prog) prog.textContent = `${done} / ${total} ${currentLang === 'te' ? 'పూర్తయ్యాయి' : 'completed'}`;
+}
+
+// PREP CHECKLIST TOGGLE
+const prepDone = {};
+
+function togglePrep(id, idx) {
+  const key = `${id}-${idx}`;
+  const el = document.getElementById(`prep-${id}-${idx}`);
+  if (!el) return;
+
+  if (!prepDone[key]) {
+    prepDone[key] = true;
+    el.classList.add('done');
+  } else {
+    prepDone[key] = false;
+    el.classList.remove('done');
+  }
+
+  const emType = allAlerts[id]?.type_id || 'default';
+  const total = (PREP_CHECKLIST[emType] || PREP_CHECKLIST.default).length;
+  const done = Object.keys(prepDone).filter(k => k.startsWith(id+'-') && prepDone[k]).length;
+
+  const prog = document.getElementById(`prep-progress-${id}`);
+  if (prog) prog.textContent = `${done} / ${total} ${currentLang === 'te' ? 'పూర్తయ్యాయి' : 'completed'}`;
+
+  if (done === total) toast(currentLang === 'te' ? '✅ అన్ని preparations complete! Team ready!' : '✅ All preparations complete! Team ready!');
+}
+
+// ACTIONS
+async function markReady(id, e) {
+  if (e) e.stopPropagation();
+  try {
+    await db.ref('active_emergencies/' + id).update({
+      hospital_response: 'TEAM_READY',
+      team_ready_at: new Date().toISOString()
+    });
+    toast(currentLang === 'te' ? '✅ Team ready confirmed — ఆసుపత్రి సిబ్బంది సిద్ధంగా ఉంది!' : '✅ Team ready confirmed!');
+  } catch(err) {
+    toast('Firebase update failed', 'err');
+  }
+}
+
+async function markArrived(id, e) {
+  if (e) e.stopPropagation();
+  try {
+    await db.ref('active_emergencies/' + id).update({
+      status: 'arrived',
+      arrived_at: new Date().toISOString()
+    });
+    toast(currentLang === 'te' ? '✅ Patient arrived — రోగి ఆసుపత్రికి చేరుకున్నారు' : '✅ Patient arrived!');
+  } catch(err) {
+    toast('Firebase update failed', 'err');
+  }
+}
+
+async function notifyICU(id) {
+  try {
+    await db.ref('active_emergencies/' + id).update({
+      icu_notified: true,
+      icu_notified_at: new Date().toISOString()
+    });
+    toast(currentLang === 'te' ? '🏥 ICU బృందానికి తెలియజేయబడింది!' : '🏥 ICU team notified!');
+  } catch(err) {
+    toast('Notification failed', 'err');
+  }
+}
+
+// FILTER
+function filterAlerts(mode, btn) {
+  filterMode = mode;
+  document.querySelectorAll('.f-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAlertsList();
+}
+
+// NEW ALERT EFFECT
+function triggerNewAlertEffect() {
+  const flash = document.getElementById('alert-flash');
+  flash.classList.add('show');
+  setTimeout(() => flash.classList.remove('show'), 600);
+
+  if (soundOn) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [880, 1100, 880].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.2 + 0.15);
+        osc.start(ctx.currentTime + i * 0.2);
+        osc.stop(ctx.currentTime + i * 0.2 + 0.15);
+      });
+    } catch(e) {}
+  }
+
+  toast(currentLang === 'te' ? '🚨 NEW EMERGENCY ALERT — అత్యవసర సందేశం వచ్చింది!' : '🚨 NEW EMERGENCY ALERT!', 'err');
+
+  if (Notification.permission === 'granted') {
+    new Notification('🚨 Emergency Alert!', {
+      body: 'New ambulance emergency — Check dashboard immediately',
+      icon: '🏥'
+    });
+  }
+}
+
+// UTILS
+function updateCounts() {
+  const total = Object.keys(allAlerts).length;
+  const active = Object.values(allAlerts).filter(a => a.status === 'EVALUATING').length;
+  document.getElementById('active-count').textContent = total;
+  document.getElementById('notif-count').textContent = active;
+  if (active > 0) {
+    document.getElementById('alert-badge').style.display = 'inline';
+  } else {
+    document.getElementById('alert-badge').style.display = 'none';
+  }
+}
+
+function toggleSound() {
+  soundOn = !soundOn;
+  const btn = document.getElementById('sound-btn');
+  const onTxt = currentLang === 'te' ? '🔔 సౌండ్ ఆన్' : '🔔 SOUND ON';
+  const offTxt = currentLang === 'te' ? '🔕 సౌండ్ ఆఫ్' : '🔕 SOUND OFF';
+  btn.textContent = soundOn ? onTxt : offTxt;
+  btn.className = soundOn ? 'sound-btn on' : 'sound-btn';
+}
+
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast on ${type || ''}`;
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('on'), 4000);
+}
+
+if ('Notification' in window && Notification.permission !== 'granted') {
+  Notification.requestPermission();
+}
+</script>
+<footer class="ftr">
+
+  <div class="ftr-content">
+
+    <!-- Brand Section -->
+
+    <div class="ftr-col">
+
+      <div class="ftr-logo">SMART TRAFFIC <span>NAVIGATOR</span></div>
+
+      <p class="ftr-desc">IoT,VLSI & AI based emergency transit system for faster medical response.</p>
+
+      <div class="ftr-copy">Copyright © 2026 Team Smart Traffic Navigators </div>
+
+    </div>
+
+
+
+    <!-- Quick Links -->
+
+    <div class="ftr-col">
+
+      <h3>RESOURCES</h3>
+
+      <a href="#">System Manual</a>
+
+      <a href="#">Hardware Docs</a>
+
+      <a href="#">AI Guidelines</a>
+
+    </div>
+
+
+
+    <!-- Team Section -->
+
+    <div class="ftr-col">
+
+      <h3>DEVELOPMENT</h3>
+
+      <a href="#">ECE Core Team</a>
+
+      <a href="#">Aditya University</a>
+
+      <a href="#">Contact Support</a>
+
+    </div>
+
+
+
+    <!-- AI Branding -->
+
+    <div class="ftr-col">
+
+      <h3>POWERED BY</h3>
+
+      <div class="ai-badge-ftr">Mitra AI</div>
+
+      <div class="ftr-status"><span class="live-dot"></span> System Live</div>
+
+    </div>
+
+  </div>
+
+</footer>
+</body>
+</html>

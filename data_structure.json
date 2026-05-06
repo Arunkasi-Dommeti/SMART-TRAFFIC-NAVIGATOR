@@ -1,0 +1,72 @@
+{
+  "active_emergencies": {
+    "-O2xCase1_NewAlert123": {
+      "ambulance_id": "AMB-001",
+      "timestamp": "2026-05-06T10:30:00.000Z",
+      "status": "EVALUATING",
+      "emergency_type": {
+        "type_id": "cardiac",
+        "english": "Cardiac Issue",
+        "telugu": "గుండె సమస్య (Cardiac)"
+      },
+      "symptoms": [
+        {
+          "english": "Chest Pain",
+          "telugu": "ఛాతీ నొప్పి"
+        },
+        {
+          "english": "Shortness of Breath",
+          "telugu": "శ్వాస తీసుకోవడం కష్టం"
+        }
+      ],
+      "patient": {
+        "age": 45,
+        "gender": "Male"
+      },
+      "location": {
+        "lat": 17.385044,
+        "lng": 78.486671,
+        "speed": 60
+      },
+      "ai_suggestions": "1. Lay patient flat, slightly elevate shoulders\n2. Administer oxygen mask (15L/min)\n3. Have them chew Aspirin 300mg\nWarning: Check BP before giving Nitroglycerin",
+      "hospital_details": "PENDING",
+      "lora_status": "TX_READY"
+    },
+    "-O2xCase2_EnRoute456": {
+      "ambulance_id": "AMB-002",
+      "timestamp": "2026-05-06T09:15:00.000Z",
+      "status": "DISPATCHED_TO_HOSPITAL",
+      "emergency_type": {
+        "type_id": "trauma",
+        "english": "Trauma / Injury",
+        "telugu": "గాయం (Trauma)"
+      },
+      "symptoms": [
+        {
+          "english": "Severe Bleeding",
+          "telugu": "తీవ్రమైన రక్తస్రావం"
+        }
+      ],
+      "patient": {
+        "age": 28,
+        "gender": "Female"
+      },
+      "location": {
+        "lat": 17.400123,
+        "lng": 78.500321,
+        "speed": 75
+      },
+      "ai_suggestions": "1. Apply direct pressure to bleeding\n2. Maintain airway",
+      "hospital_details": {
+        "name": "Apollo Hospitals",
+        "eta_minutes": 7,
+        "distance_km": 2.3,
+        "arrival_time_estimate": "2026-05-06T09:22:00.000Z"
+      },
+      "hospital_response": "TEAM_READY",
+      "team_ready_at": "2026-05-06T09:16:30.000Z",
+      "icu_notified": true,
+      "icu_notified_at": "2026-05-06T09:17:00.000Z"
+    }
+  }
+}

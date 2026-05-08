@@ -1,11 +1,4 @@
-/*
- * GATEWAY MODULE - LoRa Receiver + UART to FPGA
- * Receives: AMB-001|1|17.385000|78.486700|45
- * Sends: UART commands to FPGA for 2 junction control
- */
-
 #include <LoRa.h>
-
 // LoRa Pins
 #define LORA_SCK 18
 #define LORA_MISO 19
@@ -16,8 +9,8 @@
 
 
 // UART to FPGA
-#define FPGA_TX 17    // GPIO17 → FPGA RX
-#define FPGA_RX 16    // GPIO16 ← FPGA TX (not used but defined)
+#define FPGA_TX 17    
+#define FPGA_RX 16  
 
 // LEDs
 #define LED_POWER 4
@@ -218,7 +211,6 @@ void activateJunction(int junctionId, float distance) {
     digitalWrite(led, HIGH);
   }
   
-  // Calculate ETA
   int eta = 0;
   if (ambulanceSpeed > 0) {
     eta = (distance / ambulanceSpeed) * 3600;  // Convert to seconds
@@ -269,10 +261,6 @@ float calculateDistance(float lat1, float lon1, float lat2, float lon2) {
   
   return EARTH_RADIUS * c;
 }
-
-
-
-
 // Send to FPGA via UART
 void sendToFPGA(byte junctionId, byte emergencyFlag, int distance, int eta) {
   // Packet format: [0xFF][Junction][Emergency][Dist_H][Dist_L][ETA_H][ETA_L][0xFE]

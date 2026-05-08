@@ -1,288 +1,217 @@
+#include <SPI.h>
 #include <LoRa.h>
-// LoRa Pins
-#define LORA_SCK 18
-#define LORA_MISO 19
-#define LORA_MOSI 23
-#define LORA_CS 5
-#define LORA_RST 14
-#define LORA_DIO0 2
 
+// ── LoRa SPI Pins (SX1278 — same mapping as Block 1) ─────────────────────
+#define LORA_SCK   18
+#define LORA_MISO  19
+#define LORA_MOSI  23
+#define LORA_CS     5
+#define LORA_RST   14
+#define LORA_DIO0   2
 
-// UART to FPGA
-#define FPGA_TX 17    
-#define FPGA_RX 16  
+// ── UART to Tang Nano 9K FPGA ─────────────────────────────────────────────
+#define FPGA_TX    17    // ESP32 GPIO17 TX → Tang Nano 9K pin 17 (UART RX)
+#define FPGA_RX    16    // unused — FPGA does not send back to ESP32
 
-// LEDs
-#define LED_POWER 4
-#define LED_J1 13     // Junction 1 active indicator
-#define LED_J2 12     // Junction 2 active indicator
+// ── Status LEDs ───────────────────────────────────────────────────────────
+#define LED_POWER   4    // HIGH on boot
+#define LED_ACTIVE 13    // HIGH during active emergency
 
-// Junction Positions (GPS coordinates)
-#define J1_LAT 17.3860    // Junction 1 at ~15cm
-#define J1_LNG 78.4867
-#define J2_LAT 17.3880    // Junction 2 at ~30cm
-#define J2_LNG 78.4867
+// ── Protocol Constants ────────────────────────────────────────────────────
+#define CMD_EMERGENCY    0x31    // FPGA → EMERGENCY state (Jn A GREEN, Jn B RED, 30 s)
+#define CMD_NORMAL       0x30    // FPGA → normal S1_GREEN → S1_YELLOW → ... cycle
+#define XOR_SECRET_KEY   0x5A    // must match Block 1 ambulance firmware
+#define LORA_PACKET_SIZE    4    // fixed 4-byte secured packet, no more no less
+#define LORA_SYNC_WORD   0x12    // must match Block 1
 
-// Constants
-#define EARTH_RADIUS 6371.0       // km
-#define ACTIVATION_RANGE 0.015    // 15 meters (scaled for demo)
-#define DEACTIVATION_RANGE 0.005  // 5 meters (ambulance passed)
+// ── Ambulance ID Whitelist ────────────────────────────────────────────────
+//   16-bit IDs: (AMB_ID_H << 8) | AMB_ID_L
+//   Add registered ambulance IDs here before deployment
+const uint16_t ID_WHITELIST[]  = { 0x0001, 0x0002, 0x0003 };
+const int      WHITELIST_COUNT = sizeof(ID_WHITELIST) / sizeof(ID_WHITELIST[0]);
 
-// Global Variables
-bool j1Active = false;
-bool j2Active = false;
-String ambulanceId = "";
-float ambulanceLat = 0;
-float ambulanceLng = 0;
-int ambulanceSpeed = 0;
-bool emergencyFlag = false;
+// ── Runtime State ─────────────────────────────────────────────────────────
+bool          emergencyActive = false;
+unsigned long lastValidPacket = 0;    // millis() of last accepted packet
+unsigned long totalPackets    = 0;    // total LoRa packets received
+unsigned long validPackets    = 0;    // packets that passed validation
 
-unsigned long lastPacket = 0;
-unsigned long packetCount = 0;
-
-// SETUP
+// ═══════════════════════════════════════════════════════════════════════════
 void setup() {
   Serial.begin(115200);
+  // Serial2: TX=GPIO17, RX=GPIO16 (RX not connected but declared for API)
   Serial2.begin(9600, SERIAL_8N1, FPGA_RX, FPGA_TX);
   delay(1000);
-  
-  Serial.println("\n════════════════════════════════════════════════════");
-  Serial.println("  GATEWAY - 2 JUNCTION TRAFFIC CONTROL");
-  Serial.println("  LoRa Receiver + FPGA Interface");
-  Serial.println("════════════════════════════════════════════════════\n");
-  
-  // LED Setup
-  pinMode(LED_POWER, OUTPUT);
-  pinMode(LED_J1, OUTPUT);
-  pinMode(LED_J2, OUTPUT);
-  
-  digitalWrite(LED_POWER, HIGH);
-  digitalWrite(LED_J1, LOW);
-  digitalWrite(LED_J2, LOW);
-  
-  // Setup LoRa
+
+  Serial.println(F("\n════════════════════════════════════════════════════"));
+  Serial.println(F("  SMART TRAFFIC NAVIGATOR — GATEWAY (Block 2)"));
+  Serial.println(F("  LoRa RX → Validate → UART → Tang Nano 9K FPGA"));
+  Serial.println(F("  Aditya University ECE  |  2026"));
+  Serial.println(F("════════════════════════════════════════════════════\n"));
+
+  pinMode(LED_POWER,  OUTPUT);
+  pinMode(LED_ACTIVE, OUTPUT);
+  digitalWrite(LED_POWER,  HIGH);
+  digitalWrite(LED_ACTIVE, LOW);
+
+  // Init LoRa receiver
   setupLoRa();
-  
-  // Initialize FPGA - both junctions normal mode
-  sendToFPGA(1, 0, 0, 0);  // J1 normal
-  sendToFPGA(2, 0, 0, 0);  // J2 normal
-  
-  Serial.println("Junction 1: " + String(J1_LAT, 6) + ", " + String(J1_LNG, 6));
-  Serial.println("Junction 2: " + String(J2_LAT, 6) + ", " + String(J2_LNG, 6));
-  Serial.println("\n✅ GATEWAY READY");
-  Serial.println("📡 Listening for ambulance...\n");
+
+  // On boot, tell FPGA to start normal cycling
+  // CMD_NORMAL with ID=0x0000, checksum = 0x30 ^ 0x00 ^ 0x00 ^ 0x5A = 0x6A
+  forwardToFPGA(CMD_NORMAL, 0x00, 0x00);
+
+  Serial.println(F("✅ GATEWAY READY"));
+  Serial.println(F("📡 Listening on 433 MHz  (SF9 | BW 125 kHz | CR 4/5 | CRC)\n"));
 }
 
-// MAIN LOOP
+// ═══════════════════════════════════════════════════════════════════════════
 void loop() {
-  // Check for LoRa packets
   int packetSize = LoRa.parsePacket();
-  
-  if (packetSize) {
-    String packet = "";
-    while (LoRa.available()) {
-      packet += (char)LoRa.read();
+
+  // ── Incoming LoRa packet ────────────────────────────────────────────────
+  if (packetSize > 0) {
+    totalPackets++;
+
+    // Read all available bytes (should be exactly LORA_PACKET_SIZE)
+    byte buf[LORA_PACKET_SIZE + 4];  // +4 guard against oversized junk
+    int bytesRead = 0;
+    while (LoRa.available() && bytesRead < (int)sizeof(buf)) {
+      buf[bytesRead++] = LoRa.read();
     }
-    
+    // Drain any extra bytes we didn't read
+    while (LoRa.available()) LoRa.read();
+
     int rssi = LoRa.packetRssi();
-    packetCount++;
-    lastPacket = millis();
-    
-    Serial.println("═══════════════════════════════════════════════════");
-    Serial.println("📡 PACKET #" + String(packetCount) + " | RSSI: " + String(rssi) + " dBm");
-    Serial.println("═══════════════════════════════════════════════════");
-    Serial.println("Data: " + packet);
-    
-    if (parsePacket(packet)) {
-      processJunctions();
+
+    Serial.println(F("═══════════════════════════════════════════════════"));
+    Serial.printf("📡 PKT #%lu | RSSI: %d dBm | Length: %d bytes\n",
+                  totalPackets, rssi, bytesRead);
+
+    // Wrong length → discard immediately
+    if (bytesRead != LORA_PACKET_SIZE) {
+      Serial.printf("   ⚠️  Expected %d bytes, got %d — discarded\n\n",
+                    LORA_PACKET_SIZE, bytesRead);
+      Serial.println(F("═══════════════════════════════════════════════════\n"));
+      return;
     }
-    
-    Serial.println("═══════════════════════════════════════════════════\n");
+
+    Serial.printf("   Raw: [%02X %02X %02X %02X]\n",
+                  buf[0], buf[1], buf[2], buf[3]);
+
+    // Validate packet (checksum + whitelist)
+    if (validatePacket(buf)) {
+      validPackets++;
+      lastValidPacket = millis();
+
+      bool isEmergency  = (buf[0] == CMD_EMERGENCY);
+      uint16_t ambId    = ((uint16_t)buf[1] << 8) | buf[2];
+
+      Serial.printf("   ✅ VALID | ID: 0x%04X | CMD: %s\n",
+                    ambId, isEmergency ? "EMERGENCY (0x31)" : "NORMAL (0x30)");
+
+      // ── THE FIX: forward raw 4-byte packet to FPGA ──────────────────
+      //   FPGA packet_validator.v checks byte[0] == 0x31/0x30 to act
+      //   Old code sent [0xFF]... which always failed the FPGA validator
+      forwardToFPGA(buf[0], buf[1], buf[2]);
+
+      if (isEmergency) {
+        emergencyActive = true;
+        digitalWrite(LED_ACTIVE, HIGH);
+        Serial.println(F("   🚨 FPGA EMERGENCY → Jn A GREEN | Jn B RED | 30 sec hold"));
+      } else {
+        emergencyActive = false;
+        digitalWrite(LED_ACTIVE, LOW);
+        Serial.println(F("   🟢 FPGA NORMAL → S1_GREEN cycling resumed"));
+      }
+
+    } else {
+      // Invalid — spoofed packet or unknown ambulance
+      Serial.println(F("   ❌ INVALID — ignored (spoof attempt or unknown unit)"));
+    }
+
+    Serial.println(F("═══════════════════════════════════════════════════\n"));
   }
-  
-  // Timeout check - deactivate if no packet for 10 seconds
-  if (millis() - lastPacket > 10000 && (j1Active || j2Active)) {
-    Serial.println("⚠️ Signal lost - deactivating junctions\n");
-    deactivateJunction(1);
-    deactivateJunction(2);
+
+  // ── Signal-lost timeout ────────────────────────────────────────────────
+  // If emergency was active but no valid packet arrives for 10 s, cancel it
+  if (emergencyActive && (millis() - lastValidPacket > 10000UL)) {
+    Serial.println(F("⚠️  Signal lost (10 s timeout) — sending NORMAL to FPGA"));
+    forwardToFPGA(CMD_NORMAL, 0x00, 0x00);
+    emergencyActive = false;
+    digitalWrite(LED_ACTIVE, LOW);
+    Serial.println();
   }
-  
+
   delay(10);
 }
 
-// LoRa Setup
+// ═══════════════════════════════════════════════════════════════════════════
+//  setupLoRa() — configure SX1278 as receiver
+//  Parameters MUST match Block 1 ambulance transmitter exactly
+// ═══════════════════════════════════════════════════════════════════════════
 void setupLoRa() {
-  Serial.print("Initializing LoRa...");
-  
+  Serial.print(F("Initializing LoRa 433 MHz ... "));
   LoRa.setPins(LORA_CS, LORA_RST, LORA_DIO0);
-  
+
   if (!LoRa.begin(433E6)) {
-    Serial.println(" ❌ Failed!");
-    while(1) {
-      digitalWrite(LED_J1, !digitalRead(LED_J1));
+    Serial.println(F("❌ FAILED — check wiring (CS/RST/DIO0)"));
+    // Blink LED_ACTIVE rapidly to signal hardware fault
+    while (true) {
+      digitalWrite(LED_ACTIVE, !digitalRead(LED_ACTIVE));
       delay(200);
     }
   }
-  
-  LoRa.setSpreadingFactor(9);
-  LoRa.setSignalBandwidth(125E3);
-  LoRa.setCodingRate4(5);
-  LoRa.enableCrc();
-  
-  Serial.println(" ✅");
-  Serial.println("Frequency: 433 MHz");
-  Serial.println("Spreading Factor: 9\n");
+
+  LoRa.setSpreadingFactor(9);       // SF9  — must match Block 1
+  LoRa.setSignalBandwidth(125E3);   // 125 kHz — must match Block 1
+  LoRa.setCodingRate4(5);           // CR 4/5 — must match Block 1
+  LoRa.enableCrc();                 // CRC ON — must match Block 1
+  LoRa.setSyncWord(LORA_SYNC_WORD); // 0x12 — must match Block 1
+
+  Serial.println(F("✅"));
+  Serial.println(F("   SF9 | BW 125 kHz | CR 4/5 | CRC ON | Sync 0x12\n"));
 }
 
-// Parse LoRa Packet
-bool parsePacket(String packet) {
-  // Format: AMB-001|1|17.385000|78.486700|45
-  
-  int pipe1 = packet.indexOf('|');
-  int pipe2 = packet.indexOf('|', pipe1 + 1);
-  int pipe3 = packet.indexOf('|', pipe2 + 1);
-  int pipe4 = packet.indexOf('|', pipe3 + 1);
-  
-  if (pipe1 == -1 || pipe2 == -1 || pipe3 == -1 || pipe4 == -1) {
-    Serial.println("⚠️ Invalid format\n");
+// ═══════════════════════════════════════════════════════════════════════════
+bool validatePacket(byte buf[]) {
+  byte cmd  = buf[0];
+  byte id_h = buf[1];
+  byte id_l = buf[2];
+  byte chk  = buf[3];
+
+  // Layer 0: CMD must be 0x31 or 0x30
+  if (cmd != CMD_EMERGENCY && cmd != CMD_NORMAL) {
+    Serial.printf("   Reject: unknown CMD 0x%02X\n", cmd);
     return false;
   }
-  
-  ambulanceId = packet.substring(0, pipe1);
-  emergencyFlag = packet.substring(pipe1 + 1, pipe2) == "1";
-  ambulanceLat = packet.substring(pipe2 + 1, pipe3).toFloat();
-  ambulanceLng = packet.substring(pipe3 + 1, pipe4).toFloat();
-  ambulanceSpeed = packet.substring(pipe4 + 1).toInt();
-  
-  Serial.println("Parsed:");
-  Serial.println("  ID: " + ambulanceId);
-  Serial.println("  Emergency: " + String(emergencyFlag ? "YES" : "NO"));
-  Serial.printf("  Location: %.6f, %.6f\n", ambulanceLat, ambulanceLng);
-  Serial.println("  Speed: " + String(ambulanceSpeed) + " km/h");
-  
-  return true;
-}
-// Process Junctions
-void processJunctions() {
-  if (!emergencyFlag) {
-    Serial.println("ℹ️ No emergency - normal mode\n");
-    deactivateJunction(1);
-    deactivateJunction(2);
-    return;
+
+  // Layer 1: XOR checksum
+  byte expected_chk = cmd ^ id_h ^ id_l ^ XOR_SECRET_KEY;
+  if (chk != expected_chk) {
+    Serial.printf("   Reject: checksum 0x%02X ≠ expected 0x%02X\n",
+                  chk, expected_chk);
+    return false;
   }
-  
-  // Calculate distances
-  float distJ1 = calculateDistance(ambulanceLat, ambulanceLng, J1_LAT, J1_LNG);
-  float distJ2 = calculateDistance(ambulanceLat, ambulanceLng, J2_LAT, J2_LNG);
-  
-  Serial.println("\nDistances:");
-  Serial.printf("  J1: %.4f km (%.1f m)\n", distJ1, distJ1 * 1000);
-  Serial.printf("  J2: %.4f km (%.1f m)\n", distJ2, distJ2 * 1000);
-  
-  // Junction 1 Logic
-  if (distJ1 <= ACTIVATION_RANGE && distJ1 > DEACTIVATION_RANGE) {
-    activateJunction(1, distJ1);
-  } else if (distJ1 <= DEACTIVATION_RANGE && j1Active) {
-    Serial.println("✅ J1: Ambulance passed\n");
-    deactivateJunction(1);
-  } else if (distJ1 > ACTIVATION_RANGE && j1Active) {
-    deactivateJunction(1);
+
+  // Layer 2: Whitelist
+  uint16_t ambId = ((uint16_t)id_h << 8) | id_l;
+  for (int i = 0; i < WHITELIST_COUNT; i++) {
+    if (ID_WHITELIST[i] == ambId) return true;
   }
-  
-  // Junction 2 Logic
-  if (distJ2 <= ACTIVATION_RANGE && distJ2 > DEACTIVATION_RANGE) {
-    activateJunction(2, distJ2);
-  } else if (distJ2 <= DEACTIVATION_RANGE && j2Active) {
-    Serial.println("✅ J2: Ambulance passed\n");
-    deactivateJunction(2);
-  } else if (distJ2 > ACTIVATION_RANGE && j2Active) {
-    deactivateJunction(2);
-  }
+
+  Serial.printf("   Reject: ID 0x%04X not in whitelist\n", ambId);
+  return false;
 }
 
-// Activate Junction
-void activateJunction(int junctionId, float distance) {
-  bool *active = (junctionId == 1) ? &j1Active : &j2Active;
-  int led = (junctionId == 1) ? LED_J1 : LED_J2;
-  
-  if (!*active) {
-    Serial.println("\n🚨 J" + String(junctionId) + " ACTIVATED - GREEN CORRIDOR 🚨");
-    *active = true;
-    digitalWrite(led, HIGH);
-  }
-  
-  int eta = 0;
-  if (ambulanceSpeed > 0) {
-    eta = (distance / ambulanceSpeed) * 3600;  // Convert to seconds
-  } else {
-    eta = 30;  // Default 30 seconds
-  }
-  
-  if (eta < 10) eta = 10;   // Minimum 10 seconds
-  if (eta > 120) eta = 120; // Maximum 2 minutes
-  
-  Serial.println("  Distance: " + String(distance * 1000, 1) + " m");
-  Serial.println("  Speed: " + String(ambulanceSpeed) + " km/h");
-  Serial.println("  ETA: " + String(eta) + " seconds");
-  
-  // Send to FPGA
-  int distanceMeters = (int)(distance * 1000);
-  sendToFPGA(junctionId, 1, distanceMeters, eta);
-  
-  Serial.println("  → FPGA: Priority mode");
-}
+// ═══════════════════════════════════════════════════════════════════════════
+void forwardToFPGA(byte cmd, byte id_h, byte id_l) {
+  byte chk = cmd ^ id_h ^ id_l ^ XOR_SECRET_KEY;
+  byte pkt[LORA_PACKET_SIZE] = { cmd, id_h, id_l, chk };
 
-// Deactivate Junction
-void deactivateJunction(int junctionId) {
-  bool *active = (junctionId == 1) ? &j1Active : &j2Active;
-  int led = (junctionId == 1) ? LED_J1 : LED_J2;
-  
-  if (*active) {
-    Serial.println("🟢 J" + String(junctionId) + " DEACTIVATED - NORMAL MODE");
-    *active = false;
-    digitalWrite(led, LOW);
-    
-    sendToFPGA(junctionId, 0, 0, 0);
-    Serial.println("  → FPGA: Normal cycle\n");
-  }
-}
+  Serial2.write(pkt, LORA_PACKET_SIZE);
 
-// Calculate Distance (Haversine)
-float calculateDistance(float lat1, float lon1, float lat2, float lon2) {
-  // Convert to radians using Arduino's built-in radians() macro
-  float dLat = radians(lat2 - lat1);
-  float dLon = radians(lon2 - lon1);
-  lat1 = radians(lat1);
-  lat2 = radians(lat2);
-  
-  float a = sin(dLat/2) * sin(dLat/2) +
-            sin(dLon/2) * sin(dLon/2) * cos(lat1) * cos(lat2);
-  float c = 2 * atan2(sqrt(a), sqrt(1-a));
-  
-  return EARTH_RADIUS * c;
-}
-// Send to FPGA via UART
-void sendToFPGA(byte junctionId, byte emergencyFlag, int distance, int eta) {
-  // Packet format: [0xFF][Junction][Emergency][Dist_H][Dist_L][ETA_H][ETA_L][0xFE]
-  
-  byte packet[8];
-  packet[0] = 0xFF;                     // Start
-  packet[1] = junctionId;               // 1 or 2
-  packet[2] = emergencyFlag;            // 1=emergency, 0=normal
-  packet[3] = (distance >> 8) & 0xFF;   // Distance high
-  packet[4] = distance & 0xFF;          // Distance low
-  packet[5] = (eta >> 8) & 0xFF;        // ETA high
-  packet[6] = eta & 0xFF;               // ETA low
-  packet[7] = 0xFE;                     // End
-  
-  Serial2.write(packet, 8);
-  
-  Serial.print("🔌 UART TX: [");
-  for (int i = 0; i < 8; i++) {
-    Serial.print("0x");
-    if (packet[i] < 16) Serial.print("0");
-    Serial.print(packet[i], HEX);
-    if (i < 7) Serial.print(" ");
-  }
-  Serial.println("]");
+  Serial.printf("   🔌 UART → FPGA: [%02X %02X %02X %02X]  (%s)\n",
+                pkt[0], pkt[1], pkt[2], pkt[3],
+                (cmd == CMD_EMERGENCY) ? "EMERGENCY" : "NORMAL");
 }

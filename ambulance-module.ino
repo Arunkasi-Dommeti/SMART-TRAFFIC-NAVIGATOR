@@ -27,6 +27,13 @@
 #define LED_POWER 4
 #define LED_EMERGENCY 13
 
+// ── Protocol Constants ──────────────────────────────────────────
+#define AMBULANCE_NUM_ID 0x0001  // Binary ID to match gateway whitelist (0x0001)
+#define CMD_EMERGENCY    0x31
+#define CMD_NORMAL       0x30
+#define XOR_SECRET_KEY   0x5A
+#define LORA_SYNC_WORD   0x12
+
 
 // Global Objects
 FirebaseData fbdo;
@@ -345,21 +352,26 @@ void setupLoRa() {
   LoRa.setSignalBandwidth(125E3);
   LoRa.setCodingRate4(5);
   LoRa.enableCrc();
+  
+  // THE FIX: Gateway sync word tho match avvali
+  LoRa.setSyncWord(LORA_SYNC_WORD); 
  
   Serial.println("✅ LoRa Ready (433 MHz)\n");
 }
-
 // LoRa Transmit
 void transmitLoRa() {
-  String packet = String(AMBULANCE_ID) + "|" +
-                  String(isEmergencyActive ? "1" : "0") + "|" +
-                  String(currentLat, 6) + "|" +
-                  String(currentLng, 6) + "|" +
-                  String(currentSpeed);
+  // Construct the 4-byte binary packet expected by Gateway/FPGA
+  byte cmd = isEmergencyActive ? CMD_EMERGENCY : CMD_NORMAL;
+  byte id_h = (AMBULANCE_NUM_ID >> 8) & 0xFF;
+  byte id_l = AMBULANCE_NUM_ID & 0xFF;
+  byte chk = cmd ^ id_h ^ id_l ^ XOR_SECRET_KEY;
+  
+  // Create fixed size 4-byte array
+  byte packet[4] = {cmd, id_h, id_l, chk};
  
   LoRa.beginPacket();
-  LoRa.print(packet);
+  LoRa.write(packet, 4); // THE FIX: Send as raw bytes using write(), not print()
   LoRa.endPacket();
  
-  Serial.println("📡 LoRa TX: " + packet);
+  Serial.printf("📡 LoRa TX: CMD: 0x%02X | ID: 0x%04X | CHK: 0x%02X\n", cmd, AMBULANCE_NUM_ID, chk);
 }

@@ -1,0 +1,72 @@
+// ============================================================
+// File    : smart_traffic.cst
+// Board   : Tang Nano 9K (Gowin GW1NR-9)
+// Project : Smart Traffic Navigator — 2 Junction Controller
+//
+// How to use in Gowin EDA:
+//   Project → Project Settings → Synthesize → Add this file
+//   OR: Place/Route → IO Constraints → Import this file
+//
+// BANK reference:
+//   Pin 52 (clock) = BANK1
+//   Pin 4  (reset) = BANK3 → 1.8V → LVCMOS18
+//   Pin 40 (rx)    = BANK2 → 3.3V → LVCMOS33
+//   Pins 25-32     = BANK2 → 3.3V → LVCMOS33
+//   Pins 10-11     = BANK3 → 1.8V → LVCMOS18 (onboard LEDs)
+//
+// ⚠️  VOLTAGE SAFETY:
+//   BANK3 pins = 1.8V — DO NOT drive with 3.3V external signal
+//   BANK2 pins = 3.3V — safe for external LED connections
+//   Never apply 5V to any GPIO pin on Tang Nano 9K
+// ============================================================
+
+// ── CLOCK ───────────────────────────────────────────────────
+IO_LOC "clk" 52;
+IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// ── RESET (S1 onboard button — active LOW) ──────────────────
+IO_LOC "rst_n" 4;
+IO_PORT "rst_n" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+
+// ── UART RX from ESP32 Gateway GPIO17 ───────────────────────
+// ESP32 GPIO17 (TX) → Tang Nano Pin 40 (IOB33B, BANK2)
+// 10kΩ pull-down resistor between Pin 40 and GND
+IO_LOC "rx" 40;
+IO_PORT "rx" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// ── JUNCTION A LEDs (ambulance lane) ────────────────────────
+// Connect: FPGA pin → 220Ω → LED anode → LED cathode → GND
+IO_LOC "jA_red" 25;
+IO_PORT "jA_red" IO_TYPE=LVCMOS33 DRIVE=8;
+
+IO_LOC "jA_yellow" 26;
+IO_PORT "jA_yellow" IO_TYPE=LVCMOS33 DRIVE=8;
+
+IO_LOC "jA_green" 27;
+IO_PORT "jA_green" IO_TYPE=LVCMOS33 DRIVE=8;
+
+IO_LOC "jA_white" 28;
+IO_PORT "jA_white" IO_TYPE=LVCMOS33 DRIVE=8;
+
+// ── JUNCTION B LEDs (cross traffic) ─────────────────────────
+IO_LOC "jB_red" 29;
+IO_PORT "jB_red" IO_TYPE=LVCMOS33 DRIVE=8;
+
+IO_LOC "jB_yellow" 30;
+IO_PORT "jB_yellow" IO_TYPE=LVCMOS33 DRIVE=8;
+
+IO_LOC "jB_green" 31;
+IO_PORT "jB_green" IO_TYPE=LVCMOS33 DRIVE=8;
+
+IO_LOC "jB_white" 32;
+IO_PORT "jB_white" IO_TYPE=LVCMOS33 DRIVE=8;
+
+// ── ONBOARD STATUS LEDs (BANK3 = 1.8V) ──────────────────────
+// LED1 = valid packet indicator (blinks when ambulance signal received)
+// LED2 = invalid/spoof indicator (blinks on rejected packet)
+// Active LOW: write 0 to turn ON, write 1 to turn OFF
+IO_LOC "led_valid" 10;
+IO_PORT "led_valid" IO_TYPE=LVCMOS18;
+
+IO_LOC "led_invalid" 11;
+IO_PORT "led_invalid" IO_TYPE=LVCMOS18;

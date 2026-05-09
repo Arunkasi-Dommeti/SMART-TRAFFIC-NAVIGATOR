@@ -27,6 +27,13 @@
 #define LED_POWER 4
 #define LED_EMERGENCY 13
 
+// ── Manual Trigger Fallback ──────────────────────────────────────────────
+// GPIO0 = BOOT button on ESP32 DevKit V1 — already on the board, no extra wiring.
+// Used ONLY when WiFi fails (LoRa-Only mode).
+// Press once → activate emergency LoRa TX
+// Press again → cancel
+#define MANUAL_TRIGGER_BTN  0
+
 // ── Protocol Constants ──────────────────────────────────────────
 #define AMBULANCE_NUM_ID 0x0001  // Binary ID to match gateway whitelist (0x0001)
 #define CMD_EMERGENCY    0x31
@@ -45,6 +52,15 @@ bool isEmergencyActive = false;
 String currentEmergencyId = "";
 unsigned long lastUpdate = 0;
 const unsigned long UPDATE_INTERVAL = 1000;
+
+// ── LoRa-Only Fallback State ─────────────────────────────────────────────
+bool          wifiAvailable  = false;  // Set true only on successful WiFi connect
+bool          loraOnlyMode   = false;  // Activated when WiFi fails at boot
+
+// Button debounce (GPIO0 BOOT button)
+bool          btnLastState   = HIGH;
+unsigned long btnPressTime   = 0;
+const unsigned long DEBOUNCE_MS = 50;
 
 // GPS simulation
 float currentLat = 17.3850;
@@ -66,12 +82,26 @@ void setup() {
   pinMode(LED_EMERGENCY, OUTPUT);
   digitalWrite(LED_POWER, LOW);
   digitalWrite(LED_EMERGENCY, LOW);
+
+  // Manual trigger button (GPIO0 = BOOT button, active LOW, internal pull-up)
+  pinMode(MANUAL_TRIGGER_BTN, INPUT_PULLUP);
  
   // Connect WiFi
   connectWiFi();
  
   // Setup Firebase
   setupFirebase();
+
+  // ── Determine operating mode ─────────────────────────────────
+  if (!wifiAvailable) {
+    loraOnlyMode = true;
+    Serial.println("╔══════════════════════════════════════════════════╗");
+    Serial.println("║  ⚠️  LoRa-Only Fallback Mode ACTIVE               ║");
+    Serial.println("║  WiFi unavailable — Firebase logging disabled     ║");
+    Serial.println("║  Press BOOT button (GPIO0) to trigger emergency   ║");
+    Serial.println("║  Press again to cancel                            ║");
+    Serial.println("╚══════════════════════════════════════════════════╝\n");
+  }
  
   // Setup LoRa
   setupLoRa();
@@ -86,7 +116,10 @@ void setup() {
 // MAIN LOOP
 void loop() {
   static unsigned long lastHeartbeat = 0;
- 
+
+  // ── LoRa-Only fallback: poll BOOT button ──────────────────────
+  checkManualButton();
+
   // Update location and transmit LoRa if emergency active
   if (isEmergencyActive && (millis() - lastUpdate >= UPDATE_INTERVAL)) {
     updateLocation();
@@ -123,6 +156,7 @@ void connectWiFi() {
   }
  
   if (WiFi.status() == WL_CONNECTED) {
+    wifiAvailable = true;
     Serial.println("\n✅ WiFi Connected!");
     Serial.print("IP: ");
     Serial.println(WiFi.localIP());
@@ -325,6 +359,45 @@ void updateAmbulanceStatus(String status) {
  
   Firebase.RTDB.updateNode(&fbdo, path.c_str(), &json);
   Serial.println("Status: " + status);
+}
+
+// ── Manual Trigger Button (LoRa-Only Fallback) ───────────────────────────
+// Called every loop iteration. Does nothing when WiFi+Firebase is working.
+// When loraOnlyMode=true, a debounced press on GPIO0 (BOOT button) toggles
+// isEmergencyActive directly — no Firebase needed.
+void checkManualButton() {
+  if (!loraOnlyMode) return;  // Firebase path handles triggers — skip entirely
+
+  bool btnNow = digitalRead(MANUAL_TRIGGER_BTN);  // LOW = pressed (active LOW)
+
+  // Detect falling edge (button pressed down)
+  if (btnLastState == HIGH && btnNow == LOW) {
+    btnPressTime = millis();  // Start debounce timer
+  }
+
+  // Detect rising edge (button released) — confirm after debounce period
+  if (btnLastState == LOW && btnNow == HIGH) {
+    if (millis() - btnPressTime >= DEBOUNCE_MS) {
+      // Valid press confirmed — toggle emergency state
+      if (!isEmergencyActive) {
+        isEmergencyActive  = true;
+        currentEmergencyId = "MANUAL-" + String(millis());
+        digitalWrite(LED_EMERGENCY, HIGH);
+        Serial.println("\n🔴🔴🔴 MANUAL TRIGGER — EMERGENCY ACTIVATED 🔴🔴🔴");
+        Serial.println("   LoRa TX starting (WiFi-independent mode)");
+        Serial.println("   Firebase logging: SKIPPED (no WiFi)");
+        Serial.println("   Press BOOT button again to cancel\n");
+      } else {
+        isEmergencyActive = false;
+        currentEmergencyId = "";
+        digitalWrite(LED_EMERGENCY, LOW);
+        Serial.println("\n✅ MANUAL CANCEL — Emergency deactivated");
+        Serial.println("   LoRa TX stopped\n");
+      }
+    }
+  }
+
+  btnLastState = btnNow;
 }
 
 // LoRa Setup

@@ -44,18 +44,26 @@ module packet_validator (
     reg [1:0] state;
     reg [7:0] r_cmd, r_id_h, r_id_l;
 
-    // ── Whitelist: 6 registered ambulance IDs ─────────────────
-    // {ID_H, ID_L} pairs — must match gateway WHITELIST array
+    // ── Whitelist: registered ambulance IDs ───────────────────
+    // {ID_H, ID_L} pairs — must match gateway ESP32 WHITELIST
+    // and ambulance firmware AMBULANCE_NUM_ID definitions.
+    //
+    // Gateway whitelist:  { 0x0001, 0x0002, 0x0003 }
+    // Ambulance firmware: AMBULANCE_NUM_ID = 0x0001
+    //   → ID_H = 0x00, ID_L = 0x01
+    //
+    // ⚠️  BUG FIX (2026-05): Previous whitelist used 0xA1xx/0xA2xx IDs
+    //   which did NOT match the actual ambulance firmware (0x0001).
+    //   This caused every real ambulance packet to fire invalid_attempt
+    //   and the FSM never entered EMERGENCY state on hardware.
+    //   Fixed by aligning with gateway ESP32 whitelist.
     function automatic is_whitelisted;
         input [7:0] h, l;
         begin
             is_whitelisted =
-                (h == 8'hA1 && l == 8'h01) ||  // AMB01
-                (h == 8'hA1 && l == 8'h02) ||  // AMB02
-                (h == 8'hA1 && l == 8'h03) ||  // AMB03
-                (h == 8'hA1 && l == 8'h04) ||  // AMB04
-                (h == 8'hA2 && l == 8'h01) ||  // AMB11
-                (h == 8'hA2 && l == 8'h02);    // AMB12
+                (h == 8'h00 && l == 8'h01) ||  // AMB-001 (ambulance-module.ino default)
+                (h == 8'h00 && l == 8'h02) ||  // AMB-002
+                (h == 8'h00 && l == 8'h03);    // AMB-003
         end
     endfunction
 

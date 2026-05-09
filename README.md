@@ -344,7 +344,7 @@ The backend returns a ranked list in under 3 seconds. EMT sees hospital name, ET
 
 ## 📄 License
 
-© 2026 ECE Core Team, Aditya University. All Rights Reserved.
+All rights reserved.
 
 Unauthorized copying, modification, distribution, or deployment of this project or any of its components is strictly prohibited without prior written permission from the authors.
 

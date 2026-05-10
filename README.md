@@ -9,7 +9,7 @@
 [![LoRa](https://img.shields.io/badge/LoRa-433%20MHz-orange?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/License-All%20Rights%20Reserved-black?style=for-the-badge)]()
 
-**Aditya University — ECE Final Year Project — 2026**
+**Aditya University — ECE-1 — 2026**
 
 </div>
 
@@ -353,7 +353,7 @@ Unauthorized copying, modification, distribution, or deployment of this project 
 <div align="center">
 
 **Smart Traffic Navigator** · VLSI Technology ·Techinical Hub· Aditya University 2026· All rights reserved.
-
+git add README.md
 **Team:** P.S.B.S.Varshith · D.ArunKasi · V.Nandeeswari · Y.Hasmitha · M.Varshitha · G.Krishna Swetha
 
 *Every second counts. This system buys them back.*

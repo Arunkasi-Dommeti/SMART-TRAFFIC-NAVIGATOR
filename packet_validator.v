@@ -43,6 +43,7 @@ module packet_validator (
 
     reg [1:0] state;
     reg [7:0] r_cmd, r_id_h, r_id_l;
+    reg [7:0] expected_chk;   // FIX: module-level declaration (Verilog-2001 portable)
 
     // ── Whitelist: registered ambulance IDs ───────────────────
     // {ID_H, ID_L} pairs — must match gateway ESP32 WHITELIST
@@ -52,7 +53,7 @@ module packet_validator (
     // Ambulance firmware: AMBULANCE_NUM_ID = 0x0001
     //   → ID_H = 0x00, ID_L = 0x01
     //
-    // ⚠️  BUG FIX (2026-05): Previous whitelist used 0xA1xx/0xA2xx IDs
+    //  BUG FIX: Previous whitelist used 0xA1xx/0xA2xx IDs
     //   which did NOT match the actual ambulance firmware (0x0001).
     //   This caused every real ambulance packet to fire invalid_attempt
     //   and the FSM never entered EMERGENCY state on hardware.
@@ -69,13 +70,14 @@ module packet_validator (
 
     always @(posedge clk) begin
         if (!rst_n) begin
-            state          <= WAIT_CMD;
-            emergency_out  <= 1'b0;
-            valid_packet   <= 1'b0;
-            invalid_attempt<= 1'b0;
-            r_cmd  <= 8'h0;
-            r_id_h <= 8'h0;
-            r_id_l <= 8'h0;
+            state           <= WAIT_CMD;
+            emergency_out   <= 1'b0;
+            valid_packet    <= 1'b0;
+            invalid_attempt <= 1'b0;
+            r_cmd           <= 8'h0;
+            r_id_h          <= 8'h0;
+            r_id_l          <= 8'h0;
+            expected_chk    <= 8'h0;
         end else begin
             // Pulse outputs for 1 cycle only
             valid_packet    <= 1'b0;
@@ -104,22 +106,17 @@ module packet_validator (
                     end
 
                     WAIT_CHK: begin
-                        // Compute expected checksum
-                        // Note: using reg for combinational — synthesis safe
-                        begin
-                            reg [7:0] expected_chk;
-                            expected_chk = r_cmd ^ r_id_h ^ r_id_l ^ SECRET_KEY;
+                        // Compute expected checksum — module-level reg (Verilog-2001 portable)
+                        expected_chk = r_cmd ^ r_id_h ^ r_id_l ^ SECRET_KEY;
 
-                            if (rx_data == expected_chk &&
-                                is_whitelisted(r_id_h, r_id_l)) begin
-                                // VALID PACKET
-                                emergency_out <= (r_cmd == 8'h31) ? 1'b1 : 1'b0;
-                                valid_packet  <= 1'b1;
-                            end else begin
-                                // INVALID — spoofed or unknown ID
-                                invalid_attempt <= 1'b1;
-                                // Do NOT change emergency_out on invalid
-                            end
+                        if (rx_data == expected_chk &&
+                            is_whitelisted(r_id_h, r_id_l)) begin
+                            // VALID PACKET
+                            emergency_out <= (r_cmd == 8'h31) ? 1'b1 : 1'b0;
+                            valid_packet  <= 1'b1;
+                        end else begin
+                            // INVALID — spoofed or unknown ID
+                            invalid_attempt <= 1'b1;
                         end
                         state <= WAIT_CMD;  // Always reset to wait next packet
                     end

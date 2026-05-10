@@ -16,8 +16,8 @@
 //   jB_*      → Pins 29-32 (Junction B LEDs)
 //   led_valid → Pin 10   (Onboard LED1 — valid packet indicator)
 //   led_invalid→ Pin 11  (Onboard LED2 — spoof attempt indicator)
+//  fpga_ack  → Pin 33   (EMERGENCY ACK → ESP32 GPIO16)
 //
-// ⚠️  VOLTAGE SAFETY:
 //   All output pins are BANK2 (3.3V LVCMOS33)
 //   Onboard LED pins are BANK3 (1.8V LVCMOS18) — see .cst file
 //   NEVER apply 5V to any Tang Nano 9K GPIO pin
@@ -43,7 +43,12 @@ module traffic_top (
 
     // Onboard status LEDs
     output reg  led_valid,   // Pin 10 (LED1) — pulses on valid packet
-    output reg  led_invalid  // Pin 11 (LED2) — pulses on spoof attempt
+    output reg  led_invalid, // Pin 11 (LED2) — pulses on spoof attempt
+
+    // FPGA ACK → ESP32 Gateway GPIO16
+    // HIGH (level signal) while FSM is in EMERGENCY state
+    // Pin 33 — see smart_traffic.cst
+    output wire fpga_ack     // Pin 33
 );
 
     // ── Internal wires ──────────────────────────────────────────
@@ -52,6 +57,7 @@ module traffic_top (
     wire       emergency_out;
     wire       valid_pkt;
     wire       invalid_attempt;
+    wire       in_emergency;   // Level signal: HIGH while FSM in EMERGENCY state
 
     // ── Module 1: UART Receiver ─────────────────────────────────
     uart_rx u_uart (
@@ -75,19 +81,23 @@ module traffic_top (
 
     // ── Module 3: Traffic FSM ───────────────────────────────────
     traffic_fsm u_fsm (
-        .clk      (clk),
-        .rst_n    (rst_n),
-        .emergency(emergency_out),
-        .valid_pkt(valid_pkt),
-        .jA_red   (jA_red),
-        .jA_yellow(jA_yellow),
-        .jA_green (jA_green),
-        .jA_white (jA_white),
-        .jB_red   (jB_red),
-        .jB_yellow(jB_yellow),
-        .jB_green (jB_green),
-        .jB_white (jB_white)
+        .clk         (clk),
+        .rst_n       (rst_n),
+        .emergency   (emergency_out),
+        .valid_pkt   (valid_pkt),
+        .jA_red      (jA_red),
+        .jA_yellow   (jA_yellow),
+        .jA_green    (jA_green),
+        .jA_white    (jA_white),
+        .jB_red      (jB_red),
+        .jB_yellow   (jB_yellow),
+        .jB_green    (jB_green),
+        .jB_white    (jB_white),
+        .in_emergency(in_emergency)
     );
+
+    // fpga_ack: HIGH while in EMERGENCY → drives Pin 33 → ESP32 GPIO16
+    assign fpga_ack = in_emergency;
 
     // ── Onboard LED blink on valid packet ───────────────────────
     // Stretch 1-cycle pulse to ~0.1 sec so eye can see it

@@ -70,3 +70,10 @@ IO_PORT "led_valid" IO_TYPE=LVCMOS18;
 
 IO_LOC "led_invalid" 11;
 IO_PORT "led_invalid" IO_TYPE=LVCMOS18;
+
+// ── FPGA ACK → ESP32 Gateway GPIO16 ─────────────────────────
+// HIGH (level) while FSM is in EMERGENCY state
+// ESP32 reads this on GPIO16 (FPGA_RX in gate-way_.ino)
+// Connect: Pin 33 → 10kΩ → ESP32 GPIO16  (3.3V LVCMOS33, same bank as LEDs)
+IO_LOC "fpga_ack" 33;
+IO_PORT "fpga_ack" IO_TYPE=LVCMOS33 DRIVE=8;

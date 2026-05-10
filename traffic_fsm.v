@@ -40,7 +40,11 @@ module traffic_fsm (
     output reg  jB_red,
     output reg  jB_yellow,
     output reg  jB_green,
-    output reg  jB_white
+    output reg  jB_white,
+
+    // HIGH (level) while FSM is in EMERGENCY state
+    // Wired to fpga_ack in traffic_top → Pin 33 → ESP32 GPIO16
+    output reg  in_emergency
 );
 
     // ── State encoding ──────────────────────────────────────────
@@ -148,14 +152,15 @@ module traffic_fsm (
     // ── Combinational output logic ─────────────────────────────
     always @(*) begin
         // Safe defaults: all RED
-        jA_red    = 1'b1;
-        jA_yellow = 1'b0;
-        jA_green  = 1'b0;
-        jA_white  = 1'b0;
-        jB_red    = 1'b1;
-        jB_yellow = 1'b0;
-        jB_green  = 1'b0;
-        jB_white  = 1'b0;
+        jA_red       = 1'b1;
+        jA_yellow    = 1'b0;
+        jA_green     = 1'b0;
+        jA_white     = 1'b0;
+        jB_red       = 1'b1;
+        jB_yellow    = 1'b0;
+        jB_green     = 1'b0;
+        jB_white     = 1'b0;
+        in_emergency = 1'b0;  // default: not in EMERGENCY
 
         case (state)
 
@@ -208,13 +213,14 @@ module traffic_fsm (
                 // Junction A: GREEN (ambulance passes)
                 // Junction B: RED   (all stopped)
                 // White on B: pedestrian warning
-                jA_red    = 1'b0;
-                jA_green  = 1'b1;
-                jA_white  = 1'b0;
-                jB_red    = 1'b1;
-                jB_yellow = 1'b0;
-                jB_green  = 1'b0;
-                jB_white  = 1'b1;   // Warning: ambulance approaching
+                jA_red       = 1'b0;
+                jA_green     = 1'b1;
+                jA_white     = 1'b0;
+                jB_red       = 1'b1;
+                jB_yellow    = 1'b0;
+                jB_green     = 1'b0;
+                jB_white     = 1'b1;   // Warning: ambulance approaching
+                in_emergency = 1'b1;   // ACK to gateway ESP32 via Pin 33
             end
 
             default: begin

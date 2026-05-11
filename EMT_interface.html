@@ -460,6 +460,13 @@ input:focus { border-color:var(--blue); }
 // ──────────────────────────────────────────
 // 1. FIREBASE SETUP
 // ──────────────────────────────────────────
+// SECURITY NOTE: Firebase client-side config (apiKey, appId etc.) is
+// intentionally public per Google Firebase architecture. These values
+// identify the project, not authenticate it. Security is enforced by
+// Firebase Security Rules on the server side. See:
+// https://firebase.google.com/docs/projects/api-keys
+// For production: restrict apiKey in Google Cloud Console to allowed domains.
+// Production domains: arunkasi-dommeti.github.io, nandeeswari-7.github.io
 const firebaseConfig = {
   apiKey: "AIzaSyAhDKZsyio33xZjlLu9wrpP6FvCz0nx4Qo",
   authDomain: "emt-ambulance-case-data.firebaseapp.com",
@@ -484,7 +491,12 @@ const db = firebase.database();
 //
 // 2. STATE & LANG
 //
-const GEMINI_API_KEY = "AIzaSyC3sMM7pbk8_SzdJFkfms3WqcovLyxUR8I"; 
+// SECURITY FIX: Gemini API key moved to FastAPI backend proxy.
+// Production: POST /api/v1/ai/first-aid (server reads key from GEMINI_API_KEY env var)
+// Fallback (demo only): set window.GEMINI_KEY via server-injected config.
+// Key is no longer sent to the browser in production.
+const API_BASE = window.API_BASE || "http://localhost:8000";
+const GEMINI_API_KEY = window.GEMINI_KEY || "GEMINI_KEY_MOVED_TO_SERVER_ENV";
 window.currentLang = 'te';
 const S = {
   type: '', symptoms: [], age: '', gender: '',
@@ -683,19 +695,21 @@ async function callAI(type) {
   const prompt = `You are an emergency medical assistant. An ambulance EMT in India is responding to a ${eLabel} emergency.\n${p1}\nFormat: Numbered list. Be concise (1-2 lines).\n${p2}`;
 
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    // SECURITY FIX: Call FastAPI proxy instead of Gemini directly
+    // Server reads GEMINI_API_KEY from env var — key never sent to browser
+    const res = await fetch(`${API_BASE}/api/v1/ai/first-aid`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 600 }
+        prompt: prompt,
+        max_tokens: 600,
+        language: currentLang
       })
     });
 
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    
-    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    if (!res.ok || data.status === "error") throw new Error(data.detail || "Proxy error");
+    const aiText = data.text || "";
     renderAIContent(aiText);
   } catch (e) {
     console.error("Gemini API Error:", e);
@@ -996,12 +1010,14 @@ async function loadNavAI(h) {
   const prompt = `Emergency ambulance in India approaching ${h.name} hospital with a ${eLabel} patient.\n${p1} Be specific and practical.`;
 
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    // SECURITY FIX: FastAPI proxy — GEMINI_API_KEY on server only
+    const res = await fetch(`${API_BASE}/api/v1/ai/first-aid`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 300 }
+        prompt: prompt,
+        max_tokens: 300,
+        language: currentLang
       })
     });
 

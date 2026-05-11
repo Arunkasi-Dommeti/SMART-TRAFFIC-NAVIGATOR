@@ -56,12 +56,27 @@ int  rssiIdx    = 0;
 int  rssiAvg    = -120;
 
 // FPGA ACK tracking
-bool fpgaConfirmed = false;
+bool     fpgaConfirmed = false;
+
+// FIX: Track last validated ambulance ID for cancel packets.
+// CRITICAL BUG (prev): forwardToFPGA(CMD_NORMAL, 0x00, 0x00) used ID=0x0000
+// which is NOT in the whitelist — FPGA packet_validator.v rejected it,
+// so FSM was stuck in EMERGENCY forever on signal-loss timeout.
+// Fix: store the ID of the ambulance that triggered EMERGENCY and
+// use that same ID when sending CMD_NORMAL cancel/timeout packets.
+// packet_validator.v whitelist: {0x0001, 0x0002, 0x0003} — 0x0000 is invalid.
+uint16_t activeAmbId = ID_WHITELIST[0];  // default AMB-001; updated on each valid emergency
 
 // ═══════════════════════════════════════════════════════════════════════════
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(9600, SERIAL_8N1, FPGA_RX, FPGA_TX);
+  // FIX: Serial2 TX-only (RX=-1) — frees GPIO16 for clean digitalRead.
+  // Previous: Serial2.begin(9600, 8N1, RX=16, TX=17) gave hardware UART
+  // ownership of GPIO16, causing a pin conflict when digitalRead(FPGA_RX)
+  // was called for FPGA ACK feedback. With RX=-1, GPIO16 belongs to
+  // digitalRead only — no UART driver interference.
+  // We never receive from FPGA on Serial2, so RX=-1 has zero functional impact.
+  Serial2.begin(9600, SERIAL_8N1, -1, FPGA_TX);  // TX-only: -1 = RX unused
   delay(1000);
 
   Serial.println(F("\n════════════════════════════════════════════════════"));
@@ -77,7 +92,13 @@ void setup() {
   digitalWrite(LED_ACTIVE, LOW);
 
   setupLoRa();
-  forwardToFPGA(CMD_NORMAL, 0x00, 0x00);  // boot: FPGA starts normal cycling
+  // FIX: Use whitelisted ID (AMB-001) for boot packet.
+  // Previous: 0x00/0x00 was rejected by FPGA whitelist → led_invalid flashed on boot.
+  // packet_validator.v only accepts {0x0001, 0x0002, 0x0003}.
+  // Boot packet simply confirms normal cycling — using AMB-001 is correct.
+  forwardToFPGA(CMD_NORMAL,
+                (ID_WHITELIST[0] >> 8) & 0xFF,
+                 ID_WHITELIST[0]       & 0xFF);
 
   Serial.println(F("✅ GATEWAY READY"));
   Serial.printf("📡 Listening on 433 MHz  | RSSI trigger: %d dBm\n\n", RSSI_TRIGGER_DBM);
@@ -141,6 +162,8 @@ void loop() {
 
       if (isEmergency && withinProximity) {
         // Ambulance is close enough — activate this junction's green corridor
+        // FIX: store ambId so cancel packets use the same whitelisted ID
+        activeAmbId = ambId;
         forwardToFPGA(CMD_EMERGENCY, buf[1], buf[2]);
         emergencyActive = true;
         digitalWrite(LED_ACTIVE, HIGH);
@@ -157,8 +180,12 @@ void loop() {
 
       } else {
         // CMD_NORMAL received (ambulance cancelled/cleared junction)
-        forwardToFPGA(CMD_NORMAL, 0x00, 0x00);
+        // FIX: use activeAmbId (whitelisted) — 0x0000 was rejected by FPGA
+        forwardToFPGA(CMD_NORMAL,
+                      (activeAmbId >> 8) & 0xFF,
+                       activeAmbId       & 0xFF);
         emergencyActive = false;
+        activeAmbId = ID_WHITELIST[0];  // reset to default
         digitalWrite(LED_ACTIVE, LOW);
         // Reset RSSI buffer so next approach starts clean
         for (int i = 0; i < RSSI_SAMPLES; i++) rssiBuffer[i] = -120;
@@ -180,9 +207,15 @@ void loop() {
 
   // ── Signal-lost timeout ─────────────────────────────────────────────────
   if (emergencyActive && (millis() - lastValidPacket > 10000UL)) {
-    Serial.println(F("⚠️  Signal lost (10s) — sending NORMAL to FPGA"));
-    forwardToFPGA(CMD_NORMAL, 0x00, 0x00);
+    Serial.printf("⚠️  Signal lost (10s) — sending NORMAL to FPGA (ID: 0x%04X)\n",
+                  activeAmbId);
+    // FIX: use activeAmbId (whitelisted) — 0x0000 was rejected by packet_validator.v
+    // so FSM was stuck in EMERGENCY forever. Now FSM correctly exits to S1_GREEN.
+    forwardToFPGA(CMD_NORMAL,
+                  (activeAmbId >> 8) & 0xFF,
+                   activeAmbId       & 0xFF);
     emergencyActive = false;
+    activeAmbId = ID_WHITELIST[0];  // reset to default
     digitalWrite(LED_ACTIVE, LOW);
     for (int i = 0; i < RSSI_SAMPLES; i++) rssiBuffer[i] = -120;
     rssiAvg = -120;

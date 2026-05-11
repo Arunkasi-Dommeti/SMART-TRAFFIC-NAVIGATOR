@@ -39,8 +39,9 @@ At the same time, the EMT sees a ranked list of nearby hospitals scored by speci
 
 ### ❌ Out-of-Scope (Not Implemented)
 * Satellite communication fallback systems.
-* Multi-ambulance arbitration for simultaneous junction conflicts.
 * Adaptive 3-stage multi-distance corridor control using calibrated distance thresholds.
+  *(Note: Multi-ambulance priority arbitration groundwork is scaffolded in packet_validator.v
+  and traffic_fsm.v — full implementation is planned in Phase 2 roadmap.)*
 * Centralized city-wide traffic operations dashboard.
 * Google Maps API integration with live traffic-aware ETA computation.
 * Production cloud deployment and scalability orchestration.
@@ -293,12 +294,18 @@ Byte 3: CHECKSUM     CMD ^ ID_H ^ ID_L ^ 0x5A
 ### Step 4 — Run Backend API
 
 ```bash
-cd backend
+# main.py is at repository ROOT level (not inside a backend/ subfolder)
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
-# Swagger UI: http://localhost:8000/docs
-# Health check: http://localhost:8000/health
+# Swagger UI:    http://localhost:8000/docs
+# Health check:  http://localhost:8000/health
+# Gemini proxy:  POST http://localhost:8000/api/v1/ai/first-aid
+#
+# Environment variables (set before running):
+#   export GEMINI_API_KEY="your-gemini-key"      # Mitra AI proxy
+#   export DATABASE_URL="postgresql://..."        # optional, defaults to local
+#   export FIREBASE_CREDENTIALS_PATH="firebase-credentials.json"
 ```
 
 ---
@@ -355,7 +362,7 @@ The backend is designed for low-latency hospital ranking responses. EMT sees hos
 | Phase | Feature | Status |
 |-------|---------|--------|
 | Phase 1 | Integration of Google Maps API for route-aware ETA estimation and predictive junction activation.| Planned |
-| Phase 2 | Advanced bidirectional ambulance tracking and operator map visualization.| Planned |
+| Phase 2 | Redesigning the FPGA packet scheduling layer with priority arbitration logic for simultaneous emergency packet handling. | Planned |
 | Phase 3 | Extending RSSI-based proximity detection into multi-stage corridor control with progressive visual alert and timing adaptation layers.| Planned |
 | Phase 4 | Expanding the modular FPGA traffic architecture to coordinate multiple interconnected junction controllers. | Planned |
 | Phase 5 | Native Android EMT application for improved offline capability and device-level integration.| Planned |

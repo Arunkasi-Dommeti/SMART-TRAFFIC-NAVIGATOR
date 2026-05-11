@@ -29,7 +29,17 @@ module packet_validator (
 
     output reg        emergency_out,
     output reg        valid_packet,
-    output reg        invalid_attempt
+    output reg        invalid_attempt,
+
+    // ── Phase 4 scaffold: multi-ambulance priority arbitration ─────────────
+    // These outputs allow a future priority_encoder.v module to be inserted
+    // between packet_validator and traffic_fsm WITHOUT redesigning either.
+    // Phase 4 plan: priority_encoder reads (ambulance_id, amb_priority) from
+    // ALL active junction validators and outputs the highest-priority active
+    // ambulance to traffic_fsm via a shared arbitration bus.
+    // ─────────────────────────────────────────────────────────────────────
+    output reg [15:0] ambulance_id,    // {ID_H, ID_L} of last validated ambulance
+    output reg [1:0]  amb_priority     // 2'd3=CRITICAL, 2'd2=HIGH, 2'd1=MEDIUM, 2'd0=LOW
 );
 
     // ── Shared secret key — must match gateway ESP32 ──────────
@@ -68,12 +78,30 @@ module packet_validator (
         end
     endfunction
 
+    // ── Phase 4 scaffold: priority lookup table ────────────────────────────
+    // Maps ambulance ID to priority level for future arbitration.
+    // Priority levels: CRITICAL(3) > HIGH(2) > MEDIUM(1) > LOW(0)
+    // Future priority_encoder.v: selects highest-priority ambulance when
+    // multiple junctions receive simultaneous emergency packets.
+    // ─────────────────────────────────────────────────────────────────────
+    function [1:0] get_priority;
+        input [7:0] h, l;
+        begin
+            if      (h == 8'h00 && l == 8'h01) get_priority = 2'd3; // AMB-001: CRITICAL
+            else if (h == 8'h00 && l == 8'h02) get_priority = 2'd2; // AMB-002: HIGH
+            else if (h == 8'h00 && l == 8'h03) get_priority = 2'd1; // AMB-003: MEDIUM
+            else                                get_priority = 2'd0; // Unknown: LOW
+        end
+    endfunction
+
     always @(posedge clk) begin
         if (!rst_n) begin
             state           <= WAIT_CMD;
             emergency_out   <= 1'b0;
             valid_packet    <= 1'b0;
             invalid_attempt <= 1'b0;
+            ambulance_id    <= 16'h0;   // Phase 4 scaffold
+            amb_priority    <= 2'd0;    // Phase 4 scaffold
             r_cmd           <= 8'h0;
             r_id_h          <= 8'h0;
             r_id_l          <= 8'h0;
@@ -114,6 +142,9 @@ module packet_validator (
                             // VALID PACKET
                             emergency_out <= (r_cmd == 8'h31) ? 1'b1 : 1'b0;
                             valid_packet  <= 1'b1;
+                            // Phase 4 scaffold: output ID and priority for arbitration
+                            ambulance_id  <= {r_id_h, r_id_l};
+                            amb_priority  <= get_priority(r_id_h, r_id_l);
                         end else begin
                             // INVALID — spoofed or unknown ID
                             invalid_attempt <= 1'b1;

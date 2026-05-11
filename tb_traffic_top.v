@@ -24,6 +24,17 @@
 `define SIMULATION // Ensures traffic_fsm.v uses fast simulation timings
 `timescale 1ns/1ps
 
+// ── PARAMETERIZED UART TIMING — synced with uart_rx.v ─────────────────────
+// If CLKS_PER_BIT changes in uart_rx.v, change it here too (one place).
+// BIT_PERIOD_NS = CLKS_PER_BIT × CLK_PERIOD_NS
+//   27 MHz clock → CLK_PERIOD_NS = 37 (37.037 ns, rounded)
+//   9600 baud    → CLKS_PER_BIT  = 2813
+//   BIT_PERIOD_NS = 2813 × 37    = 104,081 ns ≈ 104,167 ns
+// ──────────────────────────────────────────────────────────────────────────
+`define CLKS_PER_BIT  2813
+`define CLK_PERIOD_NS 37
+`define BIT_PERIOD_NS (`CLKS_PER_BIT * `CLK_PERIOD_NS)
+
 module tb_traffic_top;
     reg  clk   = 0;
     reg  rst_n = 0;
@@ -57,12 +68,12 @@ module tb_traffic_top;
         integer i;
         begin
             rx = 0;
-            #104167;  // Start bit
+            #`BIT_PERIOD_NS;  // Start bit
             for (i = 0; i < 8; i = i+1) begin
                 rx = data[i];
-                #104167;
+                #`BIT_PERIOD_NS;
             end
-            rx = 1; #104167;
+            rx = 1; #`BIT_PERIOD_NS;
             // Stop bit
         end
     endtask

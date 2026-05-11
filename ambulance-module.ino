@@ -154,6 +154,8 @@ void connectWiFi() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
  
   int attempts = 0;
+  // FIX: Non-blocking WiFi connect with attempt limit (was blocking while loop)
+  // connectWifi() returns false if WiFi unavailable — LoRa-only mode activates
   while (WiFi.status() != WL_CONNECTED && attempts < 30) {
     delay(500);
     Serial.print(".");

@@ -52,12 +52,15 @@ module traffic_top (
 );
 
     // ── Internal wires ──────────────────────────────────────────
-    wire [7:0] uart_data;
-    wire       uart_valid;
-    wire       emergency_out;
-    wire       valid_pkt;
-    wire       invalid_attempt;
-    wire       in_emergency;   // Level signal: HIGH while FSM in EMERGENCY state
+    wire [7:0]  uart_data;
+    wire        uart_valid;
+    wire        emergency_out;
+    wire        valid_pkt;
+    wire        invalid_attempt;
+    wire        in_emergency;    // Level signal: HIGH while FSM in EMERGENCY state
+    // Phase 4 scaffold wires — packet_validator → (future priority_encoder →) traffic_fsm
+    wire [15:0] ambulance_id;   // Validated ambulance ID for arbitration
+    wire [1:0]  amb_priority;   // Priority level for multi-ambulance Phase 4
 
     // ── Module 1: UART Receiver ─────────────────────────────────
     uart_rx u_uart (
@@ -76,15 +79,21 @@ module traffic_top (
         .rx_data        (uart_data),
         .emergency_out  (emergency_out),
         .valid_packet   (valid_pkt),
-        .invalid_attempt(invalid_attempt)
+        .invalid_attempt(invalid_attempt),
+        // Phase 4 scaffold outputs
+        .ambulance_id   (ambulance_id),
+        .amb_priority   (amb_priority)
     );
 
     // ── Module 3: Traffic FSM ───────────────────────────────────
+    // Phase 4: insert priority_encoder.v between packet_validator
+    // and traffic_fsm — no changes needed to either module.
     traffic_fsm u_fsm (
         .clk         (clk),
         .rst_n       (rst_n),
         .emergency   (emergency_out),
         .valid_pkt   (valid_pkt),
+        .amb_priority(amb_priority),  // Phase 4 scaffold
         .jA_red      (jA_red),
         .jA_yellow   (jA_yellow),
         .jA_green    (jA_green),

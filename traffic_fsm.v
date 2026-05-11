@@ -31,6 +31,12 @@ module traffic_fsm (
     input  wire rst_n,        // Active LOW reset
     input  wire emergency,    // From packet_validator emergency_out
     input  wire valid_pkt,    // From packet_validator valid_packet (pulse)
+    // ── Phase 4 scaffold: priority arbitration input ──────────────────────
+    // Currently unused in single-ambulance mode.
+    // Phase 4: priority_encoder.v drives this input to select highest-
+    // priority ambulance when multiple units are active simultaneously.
+    // No FSM redesign needed — just connect priority_encoder output here.
+    input  wire [1:0] amb_priority,    // 2'd3=CRITICAL .. 2'd0=LOW
 
     output reg  jA_red,
     output reg  jA_yellow,

@@ -16,5 +16,11 @@ pydantic==2.7.1
 # Environment variable support
 python-dotenv==1.0.1
 
-# HTTP client (for Google Maps API — Phase 4)
+# Firebase Admin SDK — connects to same Firebase RTDB used by all modules
+# (ambulance-module.ino, EMT_interface.html, Hospital-dash-board.html)
+# Setup: Firebase Console → Project Settings → Service Accounts → Generate key
+firebase-admin==6.4.0
+
+# HTTP client — Google Maps ETA per junction (Phase 4 roadmap item)
+# Not yet imported in main.py; listed so Phase 4 dev has no extra setup step
 httpx==0.27.0

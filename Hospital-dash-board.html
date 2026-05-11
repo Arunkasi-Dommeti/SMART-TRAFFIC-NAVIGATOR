@@ -387,6 +387,12 @@ body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(r
 
 <script>
 // FIREBASE CONFIG
+// SECURITY NOTE: Firebase client-side config (apiKey, appId etc.) is
+// intentionally public per Google Firebase architecture (by design).
+// These values identify the project, not authenticate access.
+// Security is enforced by Firebase Security Rules on the server.
+// See: https://firebase.google.com/docs/projects/api-keys
+// Production: restrict this apiKey to allowed domains in Google Cloud Console.
 const firebaseConfig = {
   apiKey: "AIzaSyAhDKZsyio33xZjlLu9wrpP6FvCz0nx4Qo",
   authDomain: "emt-ambulance-case-data.firebaseapp.com",

@@ -21,13 +21,14 @@
 //   Unknown ID 0xA1   : 0x31^0xA1^0x01^0x5A = 0xCB  (correct chk, wrong ID → rejected)
 // ============================================================
 
+`define SIMULATION // Ensures traffic_fsm.v uses fast simulation timings
 `timescale 1ns/1ps
 
 module tb_traffic_top;
-
     reg  clk   = 0;
     reg  rst_n = 0;
-    reg  rx    = 1;  // UART idle HIGH
+    reg  rx    = 1;
+    // UART idle HIGH
 
     wire jA_red, jA_yellow, jA_green, jA_white;
     wire jB_red, jB_yellow, jB_green, jB_white;
@@ -40,27 +41,29 @@ module tb_traffic_top;
         .rst_n      (rst_n),
         .rx         (rx),
         .jA_red     (jA_red),    .jA_yellow(jA_yellow),
-        .jA_green   (jA_green),  .jA_white (jA_white),
+        .jA_green   (jA_green),  
+        .jA_white   (jA_white),
         .jB_red     (jB_red),    .jB_yellow(jB_yellow),
         .jB_green   (jB_green),  .jB_white (jB_white),
         .led_valid  (led_valid), .led_invalid(led_invalid),
         .fpga_ack   (fpga_ack)   // FIX: connected — was missing
     );
-
     // 27 MHz clock → period = 37.037 ns ≈ 37 ns (half = 18.5 ns)
     always #18 clk = ~clk;
-
     // ── UART TX task — 9600 baud at 27 MHz ─────────────────────
     // Bit period = 2813 cycles × 37 ns = 104,081 ns ≈ 104 µs
     task send_byte;
         input [7:0] data;
         integer i;
         begin
-            rx = 0; #104167;  // Start bit
+            rx = 0;
+            #104167;  // Start bit
             for (i = 0; i < 8; i = i+1) begin
-                rx = data[i]; #104167;
+                rx = data[i];
+                #104167;
             end
-            rx = 1; #104167;  // Stop bit
+            rx = 1; #104167;
+            // Stop bit
         end
     endtask
 
@@ -71,9 +74,12 @@ module tb_traffic_top;
         begin
             $display("[%0t] Sending EMERGENCY packet — AMB-001 (0x00/0x01)", $time);
             send_byte(8'h31);  // CMD
-            send_byte(8'h00);  // ID_H — FIX: was 0xA1 (not in whitelist)
-            send_byte(8'h01);  // ID_L
-            send_byte(8'h6A);  // CHECKSUM — FIX: was 0xEB (matched old wrong ID)
+            send_byte(8'h00);
+            // ID_H — FIX: was 0xA1 (not in whitelist)
+            send_byte(8'h01);
+            // ID_L
+            send_byte(8'h6A);
+            // CHECKSUM — FIX: was 0xEB (matched old wrong ID)
             $display("[%0t] Packet sent", $time);
         end
     endtask
@@ -87,7 +93,8 @@ module tb_traffic_top;
             send_byte(8'h30);
             send_byte(8'h00);  // FIX: was 0xA1
             send_byte(8'h01);
-            send_byte(8'h6B);  // FIX: was 0xEA
+            send_byte(8'h6B);
+            // FIX: was 0xEA
             $display("[%0t] Packet sent", $time);
         end
     endtask
@@ -100,8 +107,10 @@ module tb_traffic_top;
             $display("[%0t] Sending SPOOFED packet (valid ID, bad checksum)", $time);
             send_byte(8'h31);
             send_byte(8'h00);  // Valid ID
-            send_byte(8'h01);  // Valid ID
-            send_byte(8'hFF);  // Wrong checksum — should fire invalid_attempt
+            send_byte(8'h01);
+            // Valid ID
+            send_byte(8'hFF);
+            // Wrong checksum — should fire invalid_attempt
             $display("[%0t] Spoof packet sent", $time);
         end
     endtask
@@ -117,24 +126,29 @@ module tb_traffic_top;
             $display("[%0t] Sending UNKNOWN ID packet (0xA1/0x01, correct chk)", $time);
             $display("[%0t] → ID not in whitelist, must be rejected", $time);
             send_byte(8'h31);
-            send_byte(8'hA1);  // NOT in whitelist {0x00/0x01, 0x00/0x02, 0x00/0x03}
+            send_byte(8'hA1);
+            // NOT in whitelist {0x00/0x01, 0x00/0x02, 0x00/0x03}
             send_byte(8'h01);
-            send_byte(8'hCB);  // Correct checksum for these bytes — still rejected
+            send_byte(8'hCB);
+            // Correct checksum for these bytes — still rejected
             $display("[%0t] Unknown ID packet sent", $time);
         end
     endtask
 
     // ── SEPARATE TASK: AMB-002 EMERGENCY (second whitelisted ID) ─
     // Tests that the whitelist accepts all registered ambulances,
-    // not just the first one. AMB-002 = ID 0x00/0x02.
+    // not just the first one.
+    // AMB-002 = ID 0x00/0x02.
     // Checksum: 0x31^0x00^0x02^0x5A = 0x69
     task send_emergency_packet_amb002;
         begin
             $display("[%0t] Sending EMERGENCY packet — AMB-002 (0x00/0x02)", $time);
             send_byte(8'h31);
             send_byte(8'h00);  // ID_H
-            send_byte(8'h02);  // ID_L — AMB-002
-            send_byte(8'h69);  // CHECKSUM: 0x31^0x00^0x02^0x5A = 0x69
+            send_byte(8'h02);
+            // ID_L — AMB-002
+            send_byte(8'h69);
+            // CHECKSUM: 0x31^0x00^0x02^0x5A = 0x69
             $display("[%0t] Packet sent", $time);
         end
     endtask
@@ -147,7 +161,6 @@ module tb_traffic_top;
         // Reset
         rst_n = 0; #2000;
         rst_n = 1; #2000;
-
         // ── TEST 1: Normal cycling ────────────────────────────
         $display("=== TEST 1: Normal cycling ===");
         $display("[%0t] Jct A: RED=%b GRN=%b | Jct B: RED=%b GRN=%b",
@@ -190,7 +203,6 @@ module tb_traffic_top;
             $display("[PASS] invalid_attempt fired — unregistered ID rejected");
         else
             $display("[FAIL] Unknown ID was NOT rejected by whitelist check");
-
         #2000000;
 
         // ── TEST 5: Second whitelisted ambulance (AMB-002) ────
@@ -202,7 +214,6 @@ module tb_traffic_top;
         else
             $display("[FAIL] AMB-002 not accepted");
         $display("[%0t] fpga_ack=%b", $time, fpga_ack);
-
         #3000000;
 
         // ── TEST 6: Normal/cancel ─────────────────────────────
@@ -213,7 +224,6 @@ module tb_traffic_top;
                  $time, jA_green, jB_green);
         if (fpga_ack == 0)
             $display("[PASS] fpga_ack=0 after cancel — ACK correctly deasserted");
-
         #5000000;
         $display("=== Simulation Complete — 6 tests passed ===");
         $finish;

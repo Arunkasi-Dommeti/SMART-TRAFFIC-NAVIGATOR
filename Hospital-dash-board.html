@@ -10,7 +10,6 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="manifest" href="/site.webmanifest">
-<!-- Firebase SDK v8 -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -304,7 +303,6 @@ body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(r
 
 <header class="hdr">
   <div class="hdr-left">
-    <!-- NEW MENU BUTTON -->
     <button class="menu-btn" onclick="toggleMenu()">
       <span style="font-size:18px">☰</span> 
       <span class="lang" data-te="మెనూ" data-en="MENU">మెనూ</span>
@@ -378,7 +376,7 @@ body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(r
 </div>
 
 <footer class="footer">
-  <span class="lang" data-te="|స్మార్ట్ ట్రాఫిక్ నావిగేటర్ © 2026 |" |data-en="Smart Traffic Navigator © 2026 |">|స్మార్ట్ ట్రాఫిక్ నావిగేటర్ © 2026 | డిజైన్ & డెవలప్: అరుణ్ కాశీ దొమ్మేటి|</span>
+  <span class="lang" data-te="|స్మార్ట్ ట్రాఫిక్ నావిగేటర్ © 2026 |" data-en="|Smart Traffic Navigator © 2026 |">|స్మార్ట్ ట్రాఫిక్ నావిగేటర్ © 2026 | డిజైన్ & డెవలప్: అరుణ్ కాశీ దొమ్మేటి|</span>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -404,6 +402,31 @@ if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.database();
+
+// ── FASTAPI HOSPITAL LOAD UPDATE AUTH LOGIC (ADDED FIX) ──
+const API_BASE_URL = "http://localhost:8000/api/v1";
+const HOSPITAL_ID = 1; // Example Default Hospital ID
+
+async function updateLoad(availableBeds, icuAvailable, loadPct) {
+  try {
+    const payload = {
+      available_beds: availableBeds,
+      icu_available: icuAvailable,
+      current_load_pct: loadPct
+    };
+    const response = await fetch(`${API_BASE_URL}/hospital/${HOSPITAL_ID}/load`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Hospital-API-Key': 'HOSPITAL_AUTH_2026' // Syncs with main.py Security update
+        },
+        body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error('API Auth or Server Error');
+  } catch(err) {
+    console.error('Failed to update hospital load API:', err);
+  }
+}
 
 // STATE
 let allAlerts = {};
@@ -741,7 +764,6 @@ function buildAlertCard(id, a) {
       ${sympCount > 3 ? `<span class="symp-tag">+${sympCount - 3}</span>` : ''}
     </div>
     <div class="ac-action-row">
-      <!-- Clicking "View Details" closes the menu so the user can see the dashboard -->
       <button class="ac-btn ac-btn-view" onclick="selectAlert('${id}', true)">${currentLang === 'te' ? 'వివరాలు చూడండి' : 'VIEW DETAILS'}</button>
     </div>`;
 
@@ -799,7 +821,6 @@ function selectAlert(id, autoCloseMenu = true) {
 
   detail.innerHTML = `
 
-    <!-- ROW 1: Emergency Type + ETA -->
     <div class="d-card d-card-red">
       <div class="dlabel">${currentLang === 'te' ? 'అత్యవసర పరిస్థితి రకం' : 'EMERGENCY TYPE'}</div>
       <div class="etype-big">${currentLang === 'te' ? (a.emergency_type?.telugu || 'Unknown') : (a.emergency_type?.english || 'Unknown')}</div>
@@ -823,7 +844,6 @@ function selectAlert(id, autoCloseMenu = true) {
       </div>
     </div>
 
-    <!-- ROW 2: Patient + Ambulance -->
     <div class="d-card d-card-blue">
       <div class="dlabel">${currentLang === 'te' ? 'రోగి వివరాలు' : 'PATIENT DETAILS'}</div>
       <div class="patient-grid">
@@ -851,7 +871,6 @@ function selectAlert(id, autoCloseMenu = true) {
       </div>
     </div>
 
-    <!-- ROW 3: Symptoms (full width) -->
     <div class="d-card d-card-amber d-card-full">
       <div class="dlabel">${currentLang === 'te' ? `లక్షణాలు — ${(a.symptoms || []).length} నమోదు చేయబడ్డాయి` : `SYMPTOMS — ${(a.symptoms || []).length} recorded`}</div>
       <div class="symp-list">
@@ -859,7 +878,6 @@ function selectAlert(id, autoCloseMenu = true) {
       </div>
     </div>
 
-    <!-- ROW 4: AI Suggestions (full width) -->
     <div class="d-card d-card-purple d-card-full">
       <div class="dlabel">${currentLang === 'te' ? 'AI ప్రాథమిక చికిత్స సూచనలు — EMT వద్ద నుండి' : 'AI FIRST AID SUGGESTIONS — FROM EMT'}</div>
       <div class="ai-panel">
@@ -874,7 +892,6 @@ function selectAlert(id, autoCloseMenu = true) {
       </div>
     </div>
 
-    <!-- ROW 5: Hospital Preparation Checklist -->
     <div class="d-card d-card-teal d-card-full">
       <div class="dlabel">${currentLang === 'te' ? 'ఆసుపత్రి సన్నాహక చెక్‌లిస్ట్ — ' + (a.emergency_type?.telugu || 'అత్యవసర పరిస్థితి') : 'HOSPITAL PREPARATION CHECKLIST — ' + (a.emergency_type?.english || 'Emergency')}</div>
       <div class="prep-list" id="prep-list-${id}">
@@ -890,7 +907,6 @@ function selectAlert(id, autoCloseMenu = true) {
       </div>
     </div>
 
-    <!-- ROW 6: Actions -->
     <div class="d-card d-card-green d-card-full">
       <div class="dlabel">${currentLang === 'te' ? 'ఆసుపత్రి ప్రతిస్పందన చర్యలు' : 'HOSPITAL RESPONSE ACTIONS'}</div>
       <div class="action-row">
@@ -1070,8 +1086,6 @@ if ('Notification' in window && Notification.permission !== 'granted') {
 
   <div class="ftr-content">
 
-    <!-- Brand Section -->
-
     <div class="ftr-col">
 
       <div class="ftr-logo">SMART TRAFFIC <span>NAVIGATOR</span></div>
@@ -1083,8 +1097,6 @@ if ('Notification' in window && Notification.permission !== 'granted') {
     </div>
 
 
-
-    <!-- Quick Links -->
 
     <div class="ftr-col">
 
@@ -1100,8 +1112,6 @@ if ('Notification' in window && Notification.permission !== 'granted') {
 
 
 
-    <!-- Team Section -->
-
     <div class="ftr-col">
 
       <h3>DEVELOPMENT</h3>
@@ -1115,8 +1125,6 @@ if ('Notification' in window && Notification.permission !== 'granted') {
     </div>
 
 
-
-    <!-- AI Branding -->
 
     <div class="ftr-col">
 

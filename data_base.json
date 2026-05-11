@@ -29,6 +29,7 @@
         "speed": 60
       },
       "ai_suggestions": "1. Lay patient flat, slightly elevate shoulders\n2. Administer oxygen mask (15L/min)\n3. Have them chew Aspirin 300mg\nWarning: Check BP before giving Nitroglycerin",
+      "survival_probability_boost": "+42% estimated based on current response time",
       "hospital_details": "PENDING",
       "lora_status": "TX_READY"
     },
@@ -56,7 +57,9 @@
         "lng": 78.500321,
         "speed": 75
       },
-      "ai_suggestions": "1. Apply direct pressure to bleeding\n2. Maintain airway",
+      "ai_suggestions": "1. Apply direct pressure to wound with sterile dressing\n2. Elevate the bleeding limb above heart level\n3. Keep patient warm to prevent shock\nDo NOT remove soaked dressings, add new ones on top",
+      "survival_probability_boost": "+38% estimated based on current response time",
+      "lora_status": "TX_ACTIVE",
       "hospital_details": {
         "name": "Apollo Hospitals",
         "eta_minutes": 7,

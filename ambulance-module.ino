@@ -4,13 +4,16 @@
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
 
-// WiFi Configuration
-#define WIFI_SSID "Arun"
-#define WIFI_PASSWORD "11111110"
+// ── SECURE CONFIGURATION ──────────────────────────────────────────
+// PRODUCTION NOTE: Do not hardcode credentials in public repositories.
+// In a full deployment, these should be loaded from ESP32 EEPROM, SPIFFS, 
+// or provisioned via a WiFiManager captive portal.
+#define WIFI_SSID "YOUR_SSID_HERE" 
+#define WIFI_PASSWORD "YOUR_PASSWORD_HERE"
 
 // Firebase Configuration
-#define API_KEY "AIzaSyAhDKZsyio33xZjlLu9wrpP6FvCz0nx4Qo"
-#define DATABASE_URL "https://emt-ambulance-case-data-default-rtdb.firebaseio.com"
+#define API_KEY "YOUR_FIREBASE_API_KEY_HERE"
+#define DATABASE_URL "https://your-project.firebaseio.com"
 
 // Ambulance Configuration
 #define AMBULANCE_ID "AMB-001"
@@ -54,8 +57,10 @@ unsigned long lastUpdate = 0;
 const unsigned long UPDATE_INTERVAL = 1000;
 
 // ── LoRa-Only Fallback State ─────────────────────────────────────────────
-bool          wifiAvailable  = false;  // Set true only on successful WiFi connect
-bool          loraOnlyMode   = false;  // Activated when WiFi fails at boot
+bool          wifiAvailable  = false;
+// Set true only on successful WiFi connect
+bool          loraOnlyMode   = false;
+// Activated when WiFi fails at boot
 
 // Button debounce (GPIO0 BOOT button)
 bool          btnLastState   = HIGH;
@@ -76,7 +81,7 @@ void setup() {
   Serial.println("  SMART AMBULANCE - " + String(AMBULANCE_ID));
   Serial.println("  Firebase + LoRa Mode");
   Serial.println("════════════════════════════════════════════════════\n");
- 
+
   // LED Setup
   pinMode(LED_POWER, OUTPUT);
   pinMode(LED_EMERGENCY, OUTPUT);
@@ -88,7 +93,7 @@ void setup() {
  
   // Connect WiFi
   connectWiFi();
- 
+
   // Setup Firebase
   setupFirebase();
 
@@ -182,7 +187,6 @@ void setupFirebase() {
   config.database_url = DATABASE_URL;
  
   Serial.println("Signing in...");
- 
   if (Firebase.signUp(&config, &auth, "", "")) {
     Serial.println("✅ Firebase Auth Success");
   } else {
@@ -192,7 +196,6 @@ void setupFirebase() {
   }
  
   config.token_status_callback = tokenStatusCallback;
- 
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
  
@@ -204,7 +207,7 @@ void setupFirebase() {
     count++;
   }
   Serial.println();
- 
+
   if (Firebase.ready()) {
     Serial.println("✅ Firebase Connected!\n");
     setupEmergencyListener();
@@ -228,6 +231,7 @@ void setupEmergencyListener() {
     Firebase.RTDB.setStreamCallback(&stream, onEmergencyTriggered, onStreamTimeout);
   }
 }
+
 // Emergency Callback - HANDLES ALL DATA TYPES
 void onEmergencyTriggered(FirebaseStream data) {
   Serial.println("\n🔥🔥🔥 FIREBASE EVENT RECEIVED 🔥🔥🔥");
@@ -235,7 +239,7 @@ void onEmergencyTriggered(FirebaseStream data) {
   Serial.println("Type: " + data.dataType());
  
   String emergencyId = "";
- 
+
   // Handle different data types
   if (data.dataType() == "string") {
     emergencyId = data.stringData();
@@ -256,7 +260,7 @@ void onEmergencyTriggered(FirebaseStream data) {
  
   Serial.println("Emergency ID: '" + emergencyId + "'");
   Serial.println("Length: " + String(emergencyId.length()));
- 
+
   // Validate emergency ID
   if (emergencyId.length() > 5 &&
       emergencyId != "null" &&
@@ -266,19 +270,17 @@ void onEmergencyTriggered(FirebaseStream data) {
       emergencyId != "") {
  
     Serial.println("\n🚨🚨🚨 EMERGENCY ACTIVATED! 🚨🚨🚨\n");
- 
     currentEmergencyId = emergencyId;
     isEmergencyActive = true;
     digitalWrite(LED_EMERGENCY, HIGH);
  
     // Fetch details
     fetchEmergencyDetails(emergencyId);
- 
+
     // Update status
     updateAmbulanceStatus("responding");
  
     Serial.println("📡 LoRa transmission STARTED\n");
- 
   } else {
     Serial.println("⚠️ Invalid ID - waiting for valid emergency...\n");
     isEmergencyActive = false;
@@ -295,7 +297,7 @@ void onStreamTimeout(bool timeout) {
 // Fetch Emergency Details
 void fetchEmergencyDetails(String emergencyId) {
   String path = "/active_emergencies/" + emergencyId;
- 
+
   if (Firebase.RTDB.getJSON(&fbdo, path.c_str())) {
     FirebaseJson &json = fbdo.jsonObject();
     FirebaseJsonData result;
@@ -328,7 +330,7 @@ void updateLocation() {
   currentLat += random(-20, 30) * 0.00001;
   currentLng += random(-20, 30) * 0.00001;
   currentSpeed = random(30, 60);
- 
+
   // Update Firebase
   if (Firebase.ready()) {
     String path = "/active_emergencies/" + currentEmergencyId + "/location";
@@ -368,11 +370,13 @@ void updateAmbulanceStatus(String status) {
 void checkManualButton() {
   if (!loraOnlyMode) return;  // Firebase path handles triggers — skip entirely
 
-  bool btnNow = digitalRead(MANUAL_TRIGGER_BTN);  // LOW = pressed (active LOW)
+  bool btnNow = digitalRead(MANUAL_TRIGGER_BTN);
+  // LOW = pressed (active LOW)
 
   // Detect falling edge (button pressed down)
   if (btnLastState == HIGH && btnNow == LOW) {
-    btnPressTime = millis();  // Start debounce timer
+    btnPressTime = millis();
+    // Start debounce timer
   }
 
   // Detect rising edge (button released) — confirm after debounce period
@@ -403,7 +407,6 @@ void checkManualButton() {
 // LoRa Setup
 void setupLoRa() {
   Serial.println("Initializing LoRa...");
- 
   LoRa.setPins(LORA_CS, LORA_RST, LORA_DIO0);
  
   if (!LoRa.begin(433E6)) {
@@ -425,12 +428,13 @@ void setupLoRa() {
   LoRa.setSignalBandwidth(125E3);
   LoRa.setCodingRate4(5);
   LoRa.enableCrc();
-  
+
   // THE FIX: Gateway sync word tho match avvali
   LoRa.setSyncWord(LORA_SYNC_WORD); 
  
   Serial.println("✅ LoRa Ready (433 MHz)\n");
 }
+
 // LoRa Transmit
 void transmitLoRa() {
   // Construct the 4-byte binary packet expected by Gateway/FPGA
@@ -438,13 +442,14 @@ void transmitLoRa() {
   byte id_h = (AMBULANCE_NUM_ID >> 8) & 0xFF;
   byte id_l = AMBULANCE_NUM_ID & 0xFF;
   byte chk = cmd ^ id_h ^ id_l ^ XOR_SECRET_KEY;
-  
+
   // Create fixed size 4-byte array
   byte packet[4] = {cmd, id_h, id_l, chk};
  
   LoRa.beginPacket();
-  LoRa.write(packet, 4); // THE FIX: Send as raw bytes using write(), not print()
+  LoRa.write(packet, 4);
+  // THE FIX: Send as raw bytes using write(), not print()
   LoRa.endPacket();
- 
+
   Serial.printf("📡 LoRa TX: CMD: 0x%02X | ID: 0x%04X | CHK: 0x%02X\n", cmd, AMBULANCE_NUM_ID, chk);
 }

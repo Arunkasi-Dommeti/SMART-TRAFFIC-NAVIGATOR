@@ -25,6 +25,29 @@ At the same time, the EMT sees a ranked list of nearby hospitals scored by speci
 
 ---
 
+## 🎯 Project Scope
+
+### ✅ In-Scope (Implemented)
+* **Tang Nano 9K Verilog FSM:** Featuring UART RX, packet validator, parameterized cycle-based timing control, and hardware-level emergency traffic preemption.
+* **Ambulance Hardware Module:** Using ESP32 firmware, validated 4-byte LoRa packet transmission with checksum and whitelist verification, battery-powered operation, and manual emergency fallback trigger.
+* **Traffic Junction Gateway:** Using ESP32 firmware with LoRa reception, UART bridge to FPGA, 3-layer packet validation, and RSSI-based progressive green corridor proximity detection.
+* **FastAPI Cloud Backend:** Supporting ambulance data ingestion, hospital ranking logic, REST endpoints, and WebSocket-based live ambulance status update infrastructure.
+* **EMT Web Interface:** Supporting emergency case entry, hospital recommendation workflow, multilingual Telugu/English interaction, and first-aid guidance workflow with backend-assisted response support.
+* **Hospital Dashboard Web Application:** Supporting live case monitoring, readiness workflow management, and emergency intake coordination.
+* **Firebase Realtime Database Integration:** For synchronized emergency case propagation across ambulance, EMT, and hospital interfaces.
+* **FPGA Verification Workflow:** Including behavioral simulation testbench coverage, synthesis, and bitstream generation for Tang Nano 9K deployment.
+
+### ❌ Out-of-Scope (Not Implemented)
+* Satellite communication fallback systems.
+* Multi-ambulance arbitration for simultaneous junction conflicts.
+* Adaptive 3-stage multi-distance corridor control using calibrated distance thresholds.
+* Centralized city-wide traffic operations dashboard.
+* Google Maps API integration with live traffic-aware ETA computation.
+* Production cloud deployment and scalability orchestration.
+* Native Android or iOS mobile applications.
+
+---
+
 ## 🎥 Demo
 
 > **Tabletop prototype** — 2 junctions, 8 LEDs, 52cm × 50cm board
@@ -43,18 +66,17 @@ At the same time, the EMT sees a ranked list of nearby hospitals scored by speci
 ---
 
 ## 🏗️ System Architecture
-
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                        AMBULANCE (Block 1)                        │
+│                        AMBULANCE (Block 1)                       │
 │   Android App ──► ESP32 ──► SX1278 LoRa TX ─────────────────►   │
 │   Firebase Stream ◄── EMT Web Interface                           │
 └──────────────────────────────────────────────────────────────────┘
-                               │  433 MHz LoRa
-                               │  4-byte secured packet
-                               ▼
+│  433 MHz LoRa
+│  4-byte secured packet
+▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                     JUNCTION GATEWAY (Block 2)                    │
+│                     JUNCTION GATEWAY (Block 2)                   │
 │   SX1278 LoRa RX ──► Validate (XOR + Whitelist) ──► UART TX     │
 │                                │  9600 baud, GPIO17               │
 │                                ▼                                  │
@@ -66,21 +88,19 @@ At the same time, the EMT sees a ranked list of nearby hospitals scored by speci
 │                                ▼                                  │
 │                  Gateway reads FPGA confirmation                  │
 └──────────────────────────────────────────────────────────────────┘
-                               │  Firebase Realtime DB
-                               ▼
+│  Firebase Realtime DB
+▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                         CLOUD BACKEND                             │
 │   FastAPI ──► Hospital Ranker ──► EMT Interface + Dashboard       │
 │   Score = (Specialization×0.50) + (Distance×0.35) + (Beds×0.15) │
-└──────────────────────────────────────────────────────────────────┘
-```
+└──────────────────────────────────────────────────────────────────┘```
 
 ---
 
 ## 📁 Repository Structure
 
-```
-SMART-TRAFFIC-NAVIGATOR/
+```SMART-TRAFFIC-NAVIGATOR/
 │
 ├── 📟  FIRMWARE
 │   ├── ambulance-module.ino      Block 1 — ESP32 ambulance transmitter
@@ -104,8 +124,8 @@ SMART-TRAFFIC-NAVIGATOR/
 │   └── README.md                 Backend setup instructions
 │
 └── 🗄️  DATABASE
-    └── data_base.json            Firebase Realtime DB schema + sample emergency cases
-```
+└── data_base.json            Firebase Realtime DB schema + sample emergency cases
+
 
 ---
 
@@ -128,6 +148,7 @@ Traffic light switching happens in **hardware**, not software. No OS, no interru
 ### Progressive Green Corridor (RSSI-Based)
 
 Each junction gateway independently uses **RSSI as a distance proxy** — no GPS required.
+
 
 ```
 Ambulance far      →  RSSI below threshold  →  junction stays NORMAL

@@ -58,17 +58,19 @@ module traffic_fsm (
     reg [2:0] state;
 
     // ── Timing constants (27 MHz) ───────────────────────────────
-    // For SIMULATION: uncomment small values, comment real values
-    // parameter GREEN_TIME  = 32'd200;
-    // parameter YELLOW_TIME = 32'd80;
-    // parameter EMERG_TIME  = 32'd400;
-    // parameter DETECT_TIME = 32'd40;
-
+`ifdef SIMULATION
+    // Fast timings for tb_traffic_top.v simulation
+    parameter GREEN_TIME  = 32'd200;
+    parameter YELLOW_TIME = 32'd80;
+    parameter EMERG_TIME  = 32'd400;
+    parameter DETECT_TIME = 32'd40;
+`else
     // Real hardware values (27 MHz):
     parameter GREEN_TIME  = 32'd405_000_000;  // 15 seconds
-    parameter YELLOW_TIME = 32'd54_000_000;   //  2 seconds
+    parameter YELLOW_TIME = 32'd54_000_000;   // 2 seconds
     parameter EMERG_TIME  = 32'd810_000_000;  // 30 seconds
-    parameter DETECT_TIME = 32'd13_500_000;   //  0.5 seconds
+    parameter DETECT_TIME = 32'd13_500_000;   // 0.5 seconds
+`endif
 
     reg [31:0] counter;
 
@@ -79,7 +81,6 @@ module traffic_fsm (
             counter <= 32'd0;
         end else begin
             counter <= counter + 1;
-
             case (state)
 
                 IDLE: begin
@@ -166,7 +167,8 @@ module traffic_fsm (
 
             IDLE: begin
                 // All RED during startup
-                jA_red = 1'b1; jB_red = 1'b1;
+                jA_red = 1'b1;
+                jB_red = 1'b1;
             end
 
             S1_GREEN: begin
@@ -219,12 +221,13 @@ module traffic_fsm (
                 jB_red       = 1'b1;
                 jB_yellow    = 1'b0;
                 jB_green     = 1'b0;
-                jB_white     = 1'b1;   // Warning: ambulance approaching
-                in_emergency = 1'b1;   // ACK to gateway ESP32 via Pin 33
+                jB_white     = 1'b1;  // Warning: ambulance approaching
+                in_emergency = 1'b1;  // ACK to gateway ESP32 via Pin 33
             end
 
             default: begin
-                jA_red = 1'b1; jB_red = 1'b1;
+                jA_red = 1'b1;
+                jB_red = 1'b1;
             end
 
         endcase

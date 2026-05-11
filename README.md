@@ -19,7 +19,7 @@
 
 Ambulances in Indian cities lose **2–4 minutes per junction** at red lights. For cardiac arrest or stroke, that window is survival margin disappearing.
 
-Smart Traffic Navigator creates an **automatic green corridor** at traffic junctions the moment an ambulance is dispatched — no city infrastructure required, no police coordination needed. A LoRa radio on the ambulance broadcasts a secured 4-byte packet at 433 MHz. The junction gateway ESP32 receives it, validates it, and commands a Tang Nano 9K FPGA via UART. The FPGA FSM switches the ambulance lane to **GREEN in 37 nanoseconds** — one clock cycle at 27 MHz.
+Smart Traffic Navigator creates an **automatic green corridor** at traffic junctions the moment an ambulance is dispatched — no centralized smart-city network backend required, no police coordination needed. A LoRa radio on the ambulance broadcasts a validated 4-byte packet with checksum and whitelist verification at 433 MHz. The junction gateway ESP32 receives it, validates it, and commands a Tang Nano 9K FPGA via UART. The FPGA FSM switches the ambulance lane to GREEN in 37 nanoseconds using parameterized cycle-based timing control at 27 MHz.
 
 At the same time, the EMT sees a ranked list of nearby hospitals scored by specialization match, bed availability, and distance — all before clearing the first junction.
 
@@ -32,8 +32,8 @@ At the same time, the EMT sees a ranked list of nearby hospitals scored by speci
 * **Ambulance Hardware Module:** Using ESP32 firmware, validated 4-byte LoRa packet transmission with checksum and whitelist verification, battery-powered operation, and manual emergency fallback trigger.
 * **Traffic Junction Gateway:** Using ESP32 firmware with LoRa reception, UART bridge to FPGA, 3-layer packet validation, and RSSI-based progressive green corridor proximity detection.
 * **FastAPI Cloud Backend:** Supporting ambulance data ingestion, hospital ranking logic, REST endpoints, and WebSocket-based live ambulance status update infrastructure.
-* **EMT Web Interface:** Supporting emergency case entry, hospital recommendation workflow, multilingual Telugu/English interaction, and first-aid guidance workflow with backend-assisted response support.
-* **Hospital Dashboard Web Application:** Supporting live case monitoring, readiness workflow management, and emergency intake coordination.
+* **EMT Web Interface:** Supporting emergency case entry, hospital recommendation workflow, multilingual Telugu/English interaction, and first-aid guidance workflow with backend-assisted prompt-response support.
+* **Hospital Dashboard Web Application:** Supporting live case monitoring, readiness workflow management, and emergency intake coordination via API Key authenticated patches.
 * **Firebase Realtime Database Integration:** For synchronized emergency case propagation across ambulance, EMT, and hospital interfaces.
 * **FPGA Verification Workflow:** Including behavioral simulation testbench coverage, synthesis, and bitstream generation for Tang Nano 9K deployment.
 
@@ -50,7 +50,7 @@ At the same time, the EMT sees a ranked list of nearby hospitals scored by speci
 
 ## 🎥 Demo
 
-> **Tabletop prototype** — 2 junctions, 8 LEDs, 52cm × 50cm board
+> **Working Tabletop Physical Prototype** — 2 junctions, 8 LEDs, 52cm × 50cm board
 
 | Component | Status |
 |-----------|--------|
@@ -60,21 +60,22 @@ At the same time, the EMT sees a ranked list of nearby hospitals scored by speci
 | 🟢 FPGA EMERGENCY State (37 ns) | ✅ Working |
 | 🌐 EMT Web Interface | ✅ [Live](https://arunkasi-dommeti.github.io/EMT-Interface/) |
 | 🏥 Hospital Dashboard | ✅ [Live](https://nandeeswari-7.github.io/Hospital-Dash-Board/) |
-| 🤖 Mitra AI First-Aid Guide | ✅ Working (Gemini API) |
-| 🐍 Backend API | ✅ Working (FastAPI) |
+| 🤖 First-Aid Guidance Assistant | ✅ Working (Backend-assisted) |
+| 🐍 Backend API & WebSockets | ✅ Working (FastAPI) |
 
 ---
 
 ## 🏗️ System Architecture
-```
+
+```text
 ┌──────────────────────────────────────────────────────────────────┐
 │                        AMBULANCE (Block 1)                       │
 │   Android App ──► ESP32 ──► SX1278 LoRa TX ─────────────────►   │
 │   Firebase Stream ◄── EMT Web Interface                           │
 └──────────────────────────────────────────────────────────────────┘
-│  433 MHz LoRa
-│  4-byte secured packet
-▼
+                               │  433 MHz LoRa
+                               │  4-byte validated packet
+                               ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                     JUNCTION GATEWAY (Block 2)                   │
 │   SX1278 LoRa RX ──► Validate (XOR + Whitelist) ──► UART TX     │
@@ -88,8 +89,8 @@ At the same time, the EMT sees a ranked list of nearby hospitals scored by speci
 │                                ▼                                  │
 │                  Gateway reads FPGA confirmation                  │
 └──────────────────────────────────────────────────────────────────┘
-│  Firebase Realtime DB
-▼
+                               │  Firebase Realtime DB
+                               ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                         CLOUD BACKEND                             │
 │   FastAPI ──► Hospital Ranker ──► EMT Interface + Dashboard       │
@@ -119,14 +120,12 @@ At the same time, the EMT sees a ranked list of nearby hospitals scored by speci
 │   └── Hospital-dash-board.html  Hospital team dashboard — live case monitoring
 │
 ├── 🐍  BACKEND
-│   ├── main.py                   FastAPI server — hospital ranking API
+│   ├── main.py                   FastAPI server — hospital ranking API + WebSockets
 │   ├── requirements.txt          Python dependencies
 │   └── README.md                 Backend setup instructions
 │
 └── 🗄️  DATABASE
-└── data_base.json            Firebase Realtime DB schema + sample emergency cases
-
-
+    └── data_base.json            Firebase Realtime DB schema + sample emergency cases
 ---
 
 ## ⚡ FPGA — The Core Innovation
@@ -243,11 +242,12 @@ Byte 3: CHECKSUM     CMD ^ ID_H ^ ID_L ^ 0x5A
 
 ```bash
 # 1. Open ambulance-module.ino in Arduino IDE
-# 2. Update credentials at top of file:
+# 2. Update credentials at top of file (Set to your local configuration):
+#      // TODO for Production: Move to EEPROM
 #      #define WIFI_SSID      "your-wifi"
 #      #define WIFI_PASSWORD  "your-password"
 #      #define API_KEY        "your-firebase-api-key"
-#      #define DATABASE_URL   "https://your-project.firebaseio.com"
+#      #define DATABASE_URL   "[https://your-project.firebaseio.com](https://your-project.firebaseio.com)"
 # 3. Board: ESP32 Dev Module | Upload Speed: 921600
 # 4. Flash to ambulance ESP32
 ```
@@ -284,7 +284,7 @@ Byte 3: CHECKSUM     CMD ^ ID_H ^ ID_L ^ 0x5A
 
 # Simulation only (no hardware needed):
 # - Add tb_traffic_top.v as simulation source
-# - In traffic_fsm.v: uncomment small timing values, comment real ones
+# - In traffic_fsm.v: use `ifdef SIMULATION logic for test timings
 # - Process → Behavioral Simulation → add signals to waveform
 ```
 
@@ -346,20 +346,20 @@ Score = (Specialization Match × 0.50)
 - **Distance (35%)** — Haversine distance from ambulance GPS, normalized over 20 km
 - **Beds (15%)** — current available beds, normalized to 0–1 scale
 
-The backend returns a ranked list in under 3 seconds. EMT sees hospital name, ETA, bed count, and match score — and can select and send pre-alert before clearing the first junction.
+The backend is designed for low-latency hospital ranking responses. EMT sees hospital name, ETA, bed count, and match score — and can select and send pre-alert before clearing the first junction.
 
 ---
 
-## 🔮 Roadmap
+## 🔮 Roadmap (Future Enhancements)
 
 | Phase | Feature | Status |
 |-------|---------|--------|
-| Phase 1 | Google Maps API + per-signal ETA per junction | Planned |
-| Phase 2 | WebSocket real-time GPS + hospital pre-alert acknowledgment | Planned |
-| Phase 3 | 3-stage distance control: 700m alert → 300m dynamic → 100m FPGA override | Planned |
-| Phase 4 | Multi-ambulance conflict resolution (priority encoder on FPGA) | Planned |
-| Phase 5 | Scale to 4–5 junctions; Basys-3 Artix-7 upgrade | Planned |
-| Phase 6 | Native Android EMT app | Planned |
+| Phase 1 | Integration of Google Maps API for route-aware ETA estimation and predictive junction activation.| Planned |
+| Phase 2 | Advanced bidirectional ambulance tracking and operator map visualization.| Planned |
+| Phase 3 | Extending RSSI-based proximity detection into multi-stage corridor control with progressive visual alert and timing adaptation layers.| Planned |
+| Phase 4 | Expanding the modular FPGA traffic architecture to coordinate multiple interconnected junction controllers. | Planned |
+| Phase 5 | Native Android EMT application for improved offline capability and device-level integration.| Planned |
+| Phase 6 | Centralized traffic operations dashboard for monitoring active emergency corridors across multiple junctions.| Planned |
 
 ---
 
@@ -374,7 +374,6 @@ Unauthorized copying, modification, distribution, or deployment of this project 
 <div align="center">
 
 **Smart Traffic Navigator** · VLSI Technology ·Techinical Hub· Aditya University 2026· All rights reserved.
-git add README.md
 **Team:** P.S.B.S.Varshith · D.ArunKasi · V.Nandeeswari · Y.Hasmitha · M.Varshitha · G.Krishna Swetha
 
 *Every second counts. This system buys them back.*

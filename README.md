@@ -188,6 +188,7 @@ Byte 3: CHECKSUM     CMD ^ ID_H ^ ID_L ^ 0x5A
 | Component | Specification | Connection |
 |-----------|--------------|-----------|
 | ESP32 DevKit V1 | WROOM-32, 38-pin | Main controller |
+| NEO-6M GPS | 9600 baud UART GPS | TX→GPIO16, RX→GPIO17 |
 | SX1278 LoRa | 433 MHz, 20 dBm | SCK→18, MISO→19, MOSI→23, NSS→5, RST→14, DIO0→2 |
 | 18650 Li-ion × 2 | 3.7V, 2200mAh in parallel | Battery pack |
 | XL6009 Boost | 3.7V → 5V | Powers ESP32 |
@@ -287,6 +288,10 @@ Byte 3: CHECKSUM     CMD ^ ID_H ^ ID_L ^ 0x5A
 # - Add tb_traffic_top.v as simulation source
 # - In traffic_fsm.v: use `ifdef SIMULATION logic for test timings
 # - Process → Behavioral Simulation → add signals to waveform
+#
+# Hardware-in-the-loop workflow:
+# - Follow docs/tang-nano-9k-hil.md for the Firebase -> ESP32 -> LoRa
+#   -> Gateway UART -> Tang Nano 9K verification path and evidence checklist.
 ```
 
 ---
@@ -304,6 +309,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 #
 # Environment variables (set before running):
 #   export GEMINI_API_KEY="your-gemini-key"      # Mitra AI proxy
+#   export HOSPITAL_SECURE_KEY="your-admin-key"  # Hospital dashboard PATCH auth
 #   export DATABASE_URL="postgresql://..."        # optional, defaults to local
 #   export FIREBASE_CREDENTIALS_PATH="firebase-credentials.json"
 ```
@@ -318,10 +324,26 @@ https://arunkasi-dommeti.github.io/EMT-Interface/
 
 # Or open locally:
 # Simply open EMT_interface.html in any browser — no server needed
+#
+# Demo deployments can inject the backend URL with:
+#   window.__SMART_TRAFFIC_CONFIG__ = { API_BASE: "https://your-api.example.com" }
+# The EMT page only accepts public config values. Gemini calls always go through
+# the backend /api/v1/ai/first-aid proxy, so browser builds do not receive AI keys.
 
 # Hospital Dashboard:
 # Open Hospital-dash-board.html in browser
 ```
+
+---
+
+## Integration Tests
+
+```bash
+pip install -r requirements.txt pytest pytest-asyncio
+pytest -q
+```
+
+The pytest suite includes cross-module checks for the full LoRa-to-FPGA packet contract, Firebase-to-ESP32 emergency stream trigger, NEO-6M GPS publishing guard, and EMT AI proxy config.
 
 ---
 

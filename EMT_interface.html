@@ -484,12 +484,32 @@ const db = firebase.database();
 // ──────────────────────────────────────────
 // 2. STATE & LANG (SECURED)
 // ──────────────────────────────────────────
-const getEnvConfig = () => {
+const DEFAULT_ENV = Object.freeze({
+  API_BASE: "http://localhost:8000"
+});
+const PUBLIC_ENV_KEYS = new Set(["API_BASE"]);
+
+const readEmbeddedEnvConfig = () => {
   try {
     return JSON.parse(document.getElementById('env-config').textContent);
   } catch (e) {
-    return { API_BASE: "http://localhost:8000" }; // Dev fallback only
+    return {};
   }
+};
+
+const getEnvConfig = () => {
+  const injectedConfig = window.__SMART_TRAFFIC_CONFIG__ || {};
+  const mergedConfig = { ...readEmbeddedEnvConfig(), ...injectedConfig };
+  const publicConfig = { ...DEFAULT_ENV };
+
+  PUBLIC_ENV_KEYS.forEach(key => {
+    const value = mergedConfig[key];
+    if (typeof value === 'string' && value.trim()) {
+      publicConfig[key] = value.trim().replace(/\/+$/, '');
+    }
+  });
+
+  return publicConfig;
 };
 
 const ENV = getEnvConfig();

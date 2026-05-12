@@ -64,6 +64,7 @@ bool isEmergencyActive = false;
 String currentEmergencyId = "";
 unsigned long lastUpdate = 0;
 const unsigned long UPDATE_INTERVAL = 1000;
+const unsigned long GPS_MAX_FIX_AGE_MS = 5000;
 
 // ── LoRa-Only Fallback State ─────────────────────────────────────────────
 bool          wifiAvailable  = false;
@@ -76,10 +77,14 @@ bool          btnLastState   = HIGH;
 unsigned long btnPressTime   = 0;
 const unsigned long DEBOUNCE_MS = 50;
 
-// Initial fallback coordinates (will update once GPS fix is acquired)
-float currentLat = 17.3850;
-float currentLng = 78.4867;
+// Real GPS state. Do not publish fallback coordinates for ranking.
+float currentLat = 0.0;
+float currentLng = 0.0;
 int currentSpeed = 0;
+bool hasGpsFix = false;
+unsigned long lastGpsFixAt = 0;
+uint32_t currentSatellites = 0;
+float currentHdop = 0.0;
 
 // SETUP
 void setup() {
@@ -343,20 +348,35 @@ void fetchEmergencyDetails(String emergencyId) {
   }
 }
 
+bool gpsFixIsFresh() {
+  return gps.location.isValid() && gps.location.age() <= GPS_MAX_FIX_AGE_MS;
+}
+
 // Update Location using actual NEO-6M Data
 void updateLocation() {
-  if (gps.location.isValid()) {
+  hasGpsFix = gpsFixIsFresh();
+
+  if (hasGpsFix) {
     currentLat = gps.location.lat();
     currentLng = gps.location.lng();
-    Serial.println("✅ GPS Fix Locked");
+    lastGpsFixAt = millis();
+    Serial.println("✅ Fresh NEO-6M GPS fix locked");
   } else {
-    Serial.println("⚠️ GPS Fix Lost/Acquiring - Using last known coordinates");
+    Serial.println("⚠️ Waiting for fresh NEO-6M GPS fix - Firebase lat/lng withheld");
   }
 
-  if (gps.speed.isValid()) {
+  if (gps.speed.isValid() && gps.speed.age() <= GPS_MAX_FIX_AGE_MS) {
     currentSpeed = gps.speed.kmph();
   } else {
     currentSpeed = 0; 
+  }
+
+  if (gps.satellites.isValid()) {
+    currentSatellites = gps.satellites.value();
+  }
+
+  if (gps.hdop.isValid()) {
+    currentHdop = gps.hdop.hdop();
   }
 
   // Update Firebase
@@ -364,16 +384,39 @@ void updateLocation() {
     String path = "/active_emergencies/" + currentEmergencyId + "/location";
  
     FirebaseJson json;
-    json.set("lat", currentLat);
-    json.set("lng", currentLng);
+    json.set("gps_fix", hasGpsFix);
+    json.set("source", "neo-6m");
+    json.set("satellites", currentSatellites);
+    json.set("hdop", currentHdop);
     json.set("speed", currentSpeed);
+    json.set("last_fix_age_ms", lastGpsFixAt == 0 ? -1 : (long)(millis() - lastGpsFixAt));
+    if (hasGpsFix) {
+      json.set("lat", currentLat);
+      json.set("lng", currentLng);
+    }
     // Use Firebase server timestamp
     json.set("timestamp/.sv", "timestamp");
  
     Firebase.RTDB.updateNode(&fbdo, path.c_str(), &json);
+
+    if (hasGpsFix) {
+      String ambulancePath = "/ambulances/" + String(AMBULANCE_ID);
+      FirebaseJson ambulanceJson;
+      ambulanceJson.set("current_lat", currentLat);
+      ambulanceJson.set("current_lng", currentLng);
+      ambulanceJson.set("current_speed", currentSpeed);
+      ambulanceJson.set("gps_fix", true);
+      ambulanceJson.set("gps_source", "neo-6m");
+      ambulanceJson.set("last_updated/.sv", "timestamp");
+      Firebase.RTDB.updateNode(&fbdo, ambulancePath.c_str(), &ambulanceJson);
+    }
   }
  
-  Serial.printf("📍 Location: %.6f, %.6f @ %d km/h\n", currentLat, currentLng, currentSpeed);
+  if (hasGpsFix) {
+    Serial.printf("📍 NEO-6M Location: %.6f, %.6f @ %d km/h\n", currentLat, currentLng, currentSpeed);
+  } else {
+    Serial.println("📍 Location not published yet; waiting for real GPS data");
+  }
 }
 
 // Update Ambulance Status

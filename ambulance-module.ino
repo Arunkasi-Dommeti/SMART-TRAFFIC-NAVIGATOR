@@ -3,6 +3,8 @@
 #include <LoRa.h>
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
+#include <TinyGPS++.h>
+#include <HardwareSerial.h>
 
 // ── SECURE CONFIGURATION ──────────────────────────────────────────
 // PRODUCTION NOTE: Do not hardcode credentials in public repositories.
@@ -44,6 +46,13 @@
 #define XOR_SECRET_KEY   0x5A
 #define LORA_SYNC_WORD   0x12
 
+// ── GPS Configuration ─────────────────────────────────────────────
+#define GPS_RX_PIN 16 // Connect to NEO-6M TX
+#define GPS_TX_PIN 17 // Connect to NEO-6M RX
+#define GPS_BAUD 9600
+
+TinyGPSPlus gps;
+HardwareSerial gpsSerial(2); // Use UART2
 
 // Global Objects
 FirebaseData fbdo;
@@ -67,7 +76,7 @@ bool          btnLastState   = HIGH;
 unsigned long btnPressTime   = 0;
 const unsigned long DEBOUNCE_MS = 50;
 
-// GPS simulation
+// Initial fallback coordinates (will update once GPS fix is acquired)
 float currentLat = 17.3850;
 float currentLng = 78.4867;
 int currentSpeed = 0;
@@ -79,7 +88,7 @@ void setup() {
  
   Serial.println("\n\n════════════════════════════════════════════════════");
   Serial.println("  SMART AMBULANCE - " + String(AMBULANCE_ID));
-  Serial.println("  Firebase + LoRa Mode");
+  Serial.println("  Firebase + LoRa + NEO-6M Mode");
   Serial.println("════════════════════════════════════════════════════\n");
 
   // LED Setup
@@ -113,7 +122,11 @@ void setup() {
  
   // Power LED ON
   digitalWrite(LED_POWER, HIGH);
- 
+  
+  // Initialize GPS UART
+  gpsSerial.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  Serial.println("✅ NEO-6M GPS Serial Started\n");
+  
   Serial.println("\n✅ SYSTEM READY");
   Serial.println("Waiting for emergency from EMT...\n");
 }
@@ -121,6 +134,11 @@ void setup() {
 // MAIN LOOP
 void loop() {
   static unsigned long lastHeartbeat = 0;
+
+  // ── Feed GPS Data ───────────────────────────────────────────────
+  while (gpsSerial.available() > 0) {
+    gps.encode(gpsSerial.read());
+  }
 
   // ── LoRa-Only fallback: poll BOOT button ──────────────────────
   checkManualButton();
@@ -154,8 +172,7 @@ void connectWiFi() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
  
   int attempts = 0;
-  // FIX: Non-blocking WiFi connect with attempt limit (was blocking while loop)
-  // connectWifi() returns false if WiFi unavailable — LoRa-only mode activates
+  // Non-blocking WiFi connect with attempt limit
   while (WiFi.status() != WL_CONNECTED && attempts < 30) {
     delay(500);
     Serial.print(".");
@@ -326,12 +343,21 @@ void fetchEmergencyDetails(String emergencyId) {
   }
 }
 
-// Update Location
+// Update Location using actual NEO-6M Data
 void updateLocation() {
-  // Simulate GPS movement
-  currentLat += random(-20, 30) * 0.00001;
-  currentLng += random(-20, 30) * 0.00001;
-  currentSpeed = random(30, 60);
+  if (gps.location.isValid()) {
+    currentLat = gps.location.lat();
+    currentLng = gps.location.lng();
+    Serial.println("✅ GPS Fix Locked");
+  } else {
+    Serial.println("⚠️ GPS Fix Lost/Acquiring - Using last known coordinates");
+  }
+
+  if (gps.speed.isValid()) {
+    currentSpeed = gps.speed.kmph();
+  } else {
+    currentSpeed = 0; 
+  }
 
   // Update Firebase
   if (Firebase.ready()) {
@@ -341,16 +367,13 @@ void updateLocation() {
     json.set("lat", currentLat);
     json.set("lng", currentLng);
     json.set("speed", currentSpeed);
-    // BUG FIX: millis() gives ms since boot (resets on reboot, not a real timestamp).
-    // Dashboard showed "1970-01-01T00:00:47" style garbage. Use Firebase server timestamp
-    // (.sv:"timestamp") — Firebase replaces it with real Unix ms on write.
+    // Use Firebase server timestamp
     json.set("timestamp/.sv", "timestamp");
  
     Firebase.RTDB.updateNode(&fbdo, path.c_str(), &json);
   }
  
-  Serial.printf("📍 Location: %.6f, %.6f @ %d km/h\n",
-                currentLat, currentLng, currentSpeed);
+  Serial.printf("📍 Location: %.6f, %.6f @ %d km/h\n", currentLat, currentLng, currentSpeed);
 }
 
 // Update Ambulance Status
@@ -362,7 +385,6 @@ void updateAmbulanceStatus(String status) {
   FirebaseJson json;
   json.set("status", status);
   json.set("ambulance_id", AMBULANCE_ID);
-  // BUG FIX: millis() is boot-relative — not a real timestamp. Use server timestamp.
   json.set("last_updated/.sv", "timestamp");
  
   Firebase.RTDB.updateNode(&fbdo, path.c_str(), &json);
@@ -370,19 +392,14 @@ void updateAmbulanceStatus(String status) {
 }
 
 // ── Manual Trigger Button (LoRa-Only Fallback) ───────────────────────────
-// Called every loop iteration. Does nothing when WiFi+Firebase is working.
-// When loraOnlyMode=true, a debounced press on GPIO0 (BOOT button) toggles
-// isEmergencyActive directly — no Firebase needed.
 void checkManualButton() {
   if (!loraOnlyMode) return;  // Firebase path handles triggers — skip entirely
 
   bool btnNow = digitalRead(MANUAL_TRIGGER_BTN);
-  // LOW = pressed (active LOW)
 
   // Detect falling edge (button pressed down)
   if (btnLastState == HIGH && btnNow == LOW) {
     btnPressTime = millis();
-    // Start debounce timer
   }
 
   // Detect rising edge (button released) — confirm after debounce period
@@ -435,7 +452,7 @@ void setupLoRa() {
   LoRa.setCodingRate4(5);
   LoRa.enableCrc();
 
-  // THE FIX: Gateway sync word tho match avvali
+  // Gateway sync word match
   LoRa.setSyncWord(LORA_SYNC_WORD); 
  
   Serial.println("✅ LoRa Ready (433 MHz)\n");
@@ -454,7 +471,6 @@ void transmitLoRa() {
  
   LoRa.beginPacket();
   LoRa.write(packet, 4);
-  // THE FIX: Send as raw bytes using write(), not print()
   LoRa.endPacket();
 
   Serial.printf("📡 LoRa TX: CMD: 0x%02X | ID: 0x%04X | CHK: 0x%02X\n", cmd, AMBULANCE_NUM_ID, chk);

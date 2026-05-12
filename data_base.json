@@ -30,12 +30,12 @@
       },
       "ai_suggestions": "1. Lay patient flat, slightly elevate shoulders\n2. Administer oxygen mask (15L/min)\n3. Have them chew Aspirin 300mg\nWarning: Check BP before giving Nitroglycerin",
       "survival_probability_boost": {
-        "boost_pct": 42,
-        "label": "+42% estimated survival improvement",
-        "formula": "9.0%/min × 4.7 min saved (2 junctions × 2.35 min avg delay)",
+        "boost_pct": 45,
+        "label": "+45% estimated survival improvement",
+        "formula": "9.0%/min × 5.0 min saved (2 junctions × 2.5 min avg delay)",
         "emergency_type": "cardiac",
         "junctions_cleared": 2,
-        "time_saved_minutes": 4.7,
+        "time_saved_minutes": 5.0,
         "clinical_source": "ACLS 2020 Guidelines — cardiac arrest survival decreases 7-10%/min without defibrillation",
         "methodology": "Junction delay elimination × per-minute survival rate from peer-reviewed literature",
         "api_endpoint": "GET /api/v1/survival-boost?emergency_type=cardiac&junctions_cleared=2"

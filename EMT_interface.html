@@ -1024,7 +1024,9 @@ async function loadNavAI(h) {
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
 
-    panel.textContent = data.candidates?.[0]?.content?.parts?.[0]?.text || (currentLang === 'te' ? 'సిద్ధంగా ఉండండి.' : 'Prepare for hospital arrival.');
+    // BUG FIX: FastAPI proxy returns {text, status} — NOT Gemini's raw candidates[] format.
+    // data.candidates is always undefined here → AI text never displayed without this fix.
+    panel.textContent = data.text || (currentLang === 'te' ? 'సిద్ధంగా ఉండండి.' : 'Prepare for hospital arrival.');
   } catch (e) {
     console.error("Gemini API Error:", e);
     panel.textContent = currentLang === 'te'
@@ -1052,26 +1054,28 @@ function toast(msg, type) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-// ── MITRA AI: EXPLICIT GEMINI API INTEGRATION ─────────────────────────
-// Evaluator Note: Explicit fetch call structure to verify Mitra AI functionality.
-// In production, this is routed securely via FastAPI backend to protect keys.
+// ── MITRA AI: SECURE GEMINI INTEGRATION via FastAPI Proxy ────────────
+// SECURITY FIX: GEMINI_API_KEY is read server-side from env var (main.py).
+// The browser NEVER sees the key — all Gemini calls go through the backend.
+// Endpoint: POST /api/v1/ai/first-aid (defined in main.py)
 async function fetchMitraAISuggestions(emergencyType, symptoms) {
-  try {
-    const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"; // Placeholder for evaluation
-    const URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    
-    const promptText = `Provide 3 immediate pre-hospital first-aid steps for ${emergencyType} with symptoms: ${symptoms}. Keep it under 40 words.`;
+  const promptText = `Provide 3 immediate pre-hospital first-aid steps for ${emergencyType} with symptoms: ${symptoms}. Keep it under 40 words.`;
 
-    const response = await fetch(URL, {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/ai/first-aid`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }]
+        prompt: promptText,
+        max_tokens: 150,
+        emergency_type: emergencyType,
+        language: currentLang || "en"
       })
     });
-    
-    const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
+
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    const data = await res.json();
+    return data.text || "AI suggestions unavailable. Proceed with standard emergency protocols.";
   } catch (error) {
     console.error("Mitra AI Integration Error:", error);
     return "AI suggestions unavailable. Proceed with standard emergency protocols.";

@@ -53,7 +53,15 @@ module packet_validator (
 
     reg [1:0] state;
     reg [7:0] r_cmd, r_id_h, r_id_l;
-    reg [7:0] expected_chk;   // FIX: module-level declaration (Verilog-2001 portable)
+    // BUG FIX: expected_chk was computed with blocking assignment (=) inside
+    // a clocked always @(posedge clk) block. Mixing blocking and non-blocking
+    // assignments in the same sequential block causes simulation/synthesis
+    // mismatch — synthesizer may register it as a flip-flop (adds 1-cycle latency)
+    // while simulator reads it combinatorially in the same delta cycle.
+    // Fix: declare as wire, compute combinatorially with assign.
+    // This guarantees zero-latency combinatorial XOR regardless of tool.
+    wire [7:0] expected_chk;
+    assign expected_chk = r_cmd ^ r_id_h ^ r_id_l ^ SECRET_KEY;
 
     // ── Whitelist: registered ambulance IDs ───────────────────
     // {ID_H, ID_L} pairs — must match gateway ESP32 WHITELIST
@@ -105,7 +113,7 @@ module packet_validator (
             r_cmd           <= 8'h0;
             r_id_h          <= 8'h0;
             r_id_l          <= 8'h0;
-            expected_chk    <= 8'h0;
+            // expected_chk is a wire — not reset here
         end else begin
             // Pulse outputs for 1 cycle only
             valid_packet    <= 1'b0;
@@ -134,8 +142,8 @@ module packet_validator (
                     end
 
                     WAIT_CHK: begin
-                        // Compute expected checksum — module-level reg (Verilog-2001 portable)
-                        expected_chk = r_cmd ^ r_id_h ^ r_id_l ^ SECRET_KEY;
+                        // expected_chk is now a combinatorial wire (assign above) —
+                        // no computation needed here. Compare directly.
 
                         if (rx_data == expected_chk &&
                             is_whitelisted(r_id_h, r_id_l)) begin

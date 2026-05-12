@@ -409,26 +409,39 @@ if (!firebase.apps.length) {
 }
 const db = firebase.database();
 
-// ── FASTAPI HOSPITAL LOAD UPDATE AUTH LOGIC (ADDED FIX) ──
-const API_BASE_URL = "http://localhost:8000/api/v1";
-const HOSPITAL_ID = 1; // Example Default Hospital ID
+// ── FASTAPI HOSPITAL LOAD UPDATE ──────────────────────────────────────────
+// BUG FIX 1: API_BASE_URL was hardcoded to localhost:8000 — fails in production.
+//   Now reads from window.API_BASE (set via <script> in deployment) with localhost
+//   as dev fallback only. For GitHub Pages: add <script>window.API_BASE="https://your-api.com"</script>
+//   before this script in the HTML head.
+// BUG FIX 2: API key was hardcoded 'HOSPITAL_AUTH_2026' in browser JS — credential exposure.
+//   Now reads from window.HOSPITAL_API_KEY (injected server-side or deployment config).
+//   NEVER commit the real key to source. In development only, set via browser console:
+//   window.HOSPITAL_API_KEY = "your-key-here"
+const API_BASE_URL = (window.API_BASE || "http://localhost:8000") + "/api/v1";
+const HOSPITAL_ID  = window.HOSPITAL_ID  || 1;
+const HOSPITAL_KEY = window.HOSPITAL_API_KEY || "";  // Set at deploy time — never hardcode
 
 async function updateLoad(availableBeds, icuAvailable, loadPct) {
+  if (!HOSPITAL_KEY) {
+    console.warn("HOSPITAL_API_KEY not set — load update skipped. Set window.HOSPITAL_API_KEY.");
+    return;
+  }
   try {
     const payload = {
-      available_beds: availableBeds,
-      icu_available: icuAvailable,
-      current_load_pct: loadPct
+      available_beds   : availableBeds,
+      icu_available    : icuAvailable,
+      current_load_pct : loadPct
     };
     const response = await fetch(`${API_BASE_URL}/hospital/${HOSPITAL_ID}/load`, {
-        method: 'PATCH',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Hospital-API-Key': 'HOSPITAL_AUTH_2026' // Syncs with main.py Security update
-        },
-        body: JSON.stringify(payload)
+      method : 'PATCH',
+      headers: {
+        'Content-Type'      : 'application/json',
+        'X-Hospital-API-Key': HOSPITAL_KEY
+      },
+      body: JSON.stringify(payload)
     });
-    if (!response.ok) throw new Error('API Auth or Server Error');
+    if (!response.ok) throw new Error(`API error ${response.status}`);
   } catch(err) {
     console.error('Failed to update hospital load API:', err);
   }

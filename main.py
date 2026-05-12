@@ -361,7 +361,15 @@ app = FastAPI(
 # SECURE API KEY FIX (AI EVALUATOR REQUIREMENT)
 API_KEY_NAME = "X-Hospital-API-Key"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
-HOSPITAL_SECURE_KEY = "HOSPITAL_AUTH_2026" # In prod, load from .env
+# SECURITY FIX: Load from environment variable — never hardcode credentials
+# Production setup: export HOSPITAL_SECURE_KEY="your-strong-random-key"
+# Local dev: add HOSPITAL_SECURE_KEY=... to your .env file and use python-dotenv
+HOSPITAL_SECURE_KEY = os.getenv("HOSPITAL_SECURE_KEY")
+if not HOSPITAL_SECURE_KEY:
+    raise RuntimeError(
+        "HOSPITAL_SECURE_KEY environment variable is not set. "
+        "Set it before starting the server: export HOSPITAL_SECURE_KEY='your-key'"
+    )
 
 # FIX 2: CORS — specific allowed origins instead of wildcard "*"
 # Covers: EMT interface (GitHub Pages), Hospital Dashboard (GitHub Pages),

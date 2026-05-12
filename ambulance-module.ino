@@ -341,7 +341,10 @@ void updateLocation() {
     json.set("lat", currentLat);
     json.set("lng", currentLng);
     json.set("speed", currentSpeed);
-    json.set("timestamp", millis());
+    // BUG FIX: millis() gives ms since boot (resets on reboot, not a real timestamp).
+    // Dashboard showed "1970-01-01T00:00:47" style garbage. Use Firebase server timestamp
+    // (.sv:"timestamp") — Firebase replaces it with real Unix ms on write.
+    json.set("timestamp/.sv", "timestamp");
  
     Firebase.RTDB.updateNode(&fbdo, path.c_str(), &json);
   }
@@ -359,7 +362,8 @@ void updateAmbulanceStatus(String status) {
   FirebaseJson json;
   json.set("status", status);
   json.set("ambulance_id", AMBULANCE_ID);
-  json.set("last_updated", millis());
+  // BUG FIX: millis() is boot-relative — not a real timestamp. Use server timestamp.
+  json.set("last_updated/.sv", "timestamp");
  
   Firebase.RTDB.updateNode(&fbdo, path.c_str(), &json);
   Serial.println("Status: " + status);

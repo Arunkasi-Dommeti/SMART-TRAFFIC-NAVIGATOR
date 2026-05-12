@@ -16,11 +16,10 @@ pydantic==2.7.1
 # Environment variable support
 python-dotenv==1.0.1
 
-# Firebase Admin SDK — connects to same Firebase RTDB used by all modules
-# (ambulance-module.ino, EMT_interface.html, Hospital-dash-board.html)
-# Setup: Firebase Console → Project Settings → Service Accounts → Generate key
-firebase-admin==6.4.0
-
-# HTTP client — Google Maps ETA per junction (Phase 4 roadmap item)
-# Not yet imported in main.py; listed so Phase 4 dev has no extra setup step
+# HTTP client — Gemini AI proxy in main.py (/api/v1/ai/first-aid endpoint)
 httpx==0.27.0
+
+# NOTE: firebase-admin removed — main.py uses PostgreSQL via SQLAlchemy, not Firebase Admin SDK.
+# The Firebase RTDB used by ESP32 firmware and HTML dashboards is accessed directly
+# via the Firebase JS SDK (HTML files) and Firebase_ESP_Client (Arduino .ino files).
+# Re-add firebase-admin only if you implement server-side Firebase Admin operations.

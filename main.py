@@ -15,9 +15,10 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depe
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, Text
+from sqlalchemy.pool import StaticPool
 # SQLAlchemy 2.0: declarative_base moved from ext.declarative to orm
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 # FIX 1: Import timezone — datetime.utcnow() is deprecated in Python 3.12+
 # Use datetime.now(timezone.utc) everywhere instead
@@ -37,7 +38,13 @@ DATABASE_URL = os.getenv(
     "postgresql://navigator:navigator@localhost:5432/smart_traffic"
 )
 
-engine       = create_engine(DATABASE_URL)
+engine_kwargs = {}
+if DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+    if DATABASE_URL in {"sqlite://", "sqlite:///:memory:"}:
+        engine_kwargs["poolclass"] = StaticPool
+
+engine       = create_engine(DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base         = declarative_base()
 
@@ -137,6 +144,8 @@ class HospitalSelectRequest(BaseModel):
 
 
 class HospitalResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id                   : int
     name                 : str
     distance_km          : float
@@ -147,9 +156,6 @@ class HospitalResponse(BaseModel):
     current_load_pct     : float
     specializations      : List[str]
     specialization_match : bool
-
-    class Config:
-        from_attributes = True
 
 # ===========================================================================
 # Haversine distance (km)

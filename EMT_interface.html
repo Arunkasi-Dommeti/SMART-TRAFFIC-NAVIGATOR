@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EMT Interface - SMART TRAFFIC NAVIGATOR</title>
 
-<!-- FIREBASE SDKS -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -456,17 +455,16 @@ input:focus { border-color:var(--blue); }
 
 <div class="toast" id="toast"></div>
 
+<script id="env-config" type="application/json">
+  {
+    "API_BASE": "http://localhost:8000"
+  }
+</script>
+
 <script>
 // ──────────────────────────────────────────
 // 1. FIREBASE SETUP
 // ──────────────────────────────────────────
-// SECURITY NOTE: Firebase client-side config (apiKey, appId etc.) is
-// intentionally public per Google Firebase architecture. These values
-// identify the project, not authenticate it. Security is enforced by
-// Firebase Security Rules on the server side. See:
-// https://firebase.google.com/docs/projects/api-keys
-// For production: restrict apiKey in Google Cloud Console to allowed domains.
-// Production domains: arunkasi-dommeti.github.io, nandeeswari-7.github.io
 const firebaseConfig = {
   apiKey: "AIzaSyAhDKZsyio33xZjlLu9wrpP6FvCz0nx4Qo",
   authDomain: "emt-ambulance-case-data.firebaseapp.com",
@@ -478,31 +476,30 @@ const firebaseConfig = {
   measurementId: "G-NG8Q897PTS"
 };
 
-
-// Initialize Firebase safely
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.database();
 
 // ──────────────────────────────────────────
-// 2. STATE & LANG
+// 2. STATE & LANG (SECURED)
 // ──────────────────────────────────────────
-//
-// 2. STATE & LANG
-//
-// SECURITY FIX: Gemini API key moved to FastAPI backend proxy.
-// Production: POST /api/v1/ai/first-aid (server reads key from GEMINI_API_KEY env var)
-// Fallback (demo only): set window.GEMINI_KEY via server-injected config.
-// Key is no longer sent to the browser in production.
-const API_BASE = window.API_BASE || "http://localhost:8000";
-const GEMINI_API_KEY = window.GEMINI_KEY || "GEMINI_KEY_MOVED_TO_SERVER_ENV";
+const getEnvConfig = () => {
+  try {
+    return JSON.parse(document.getElementById('env-config').textContent);
+  } catch (e) {
+    return { API_BASE: "http://localhost:8000" }; // Dev fallback only
+  }
+};
+
+const ENV = getEnvConfig();
+const API_BASE = ENV.API_BASE;
 window.currentLang = 'te';
 const S = {
   type: '', symptoms: [], age: '', gender: '',
   lat: null, lng: null, speed: 0,
   selHosp: null,
-  recordId: null // Firebase ID ikkada vastundi
+  recordId: null 
 };
 
 // ──────────────────────────────────────────
@@ -587,7 +584,6 @@ function switchLanguage(lang) {
   
   updateGPSUI();
 if (document.getElementById('st1').classList.contains('done')) {
-    // Ee okka line kothaga add chesthunnam
     if (!S.type || !EMERGENCY_DATA[S.type]) return; 
 
     const eData = EMERGENCY_DATA[S.type];
@@ -695,8 +691,6 @@ async function callAI(type) {
   const prompt = `You are an emergency medical assistant. An ambulance EMT in India is responding to a ${eLabel} emergency.\n${p1}\nFormat: Numbered list. Be concise (1-2 lines).\n${p2}`;
 
   try {
-    // SECURITY FIX: Call FastAPI proxy instead of Gemini directly
-    // Server reads GEMINI_API_KEY from env var — key never sent to browser
     const res = await fetch(`${API_BASE}/api/v1/ai/first-aid`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -806,31 +800,20 @@ async function doSend() {
   };
 
   try {
-    // STEP 1: Create emergency entry
     const newRecordRef = await db.ref('active_emergencies').push(emergencyData);
     S.recordId = newRecordRef.key;
     
     console.log("✅ Emergency created with ID:", S.recordId);
 
-    // ════════════════════════════════════════════════════════════
-    // ADD THESE 3 STEPS HERE ← INSERT POINT
-    // ════════════════════════════════════════════════════════════
-    
-    // STEP 2: TRIGGER ESP32 AMBULANCE
     console.log("📝 Triggering ambulance ESP32...");
     const ambulanceRef = db.ref('ambulances/AMB-001/emergency_id');
     await ambulanceRef.set(S.recordId);
     console.log("✅ Ambulance triggered! emergency_id set to:", S.recordId);
     
-    // STEP 3: Update ambulance status
     console.log("📝 Updating ambulance status...");
     const statusRef = db.ref('ambulances/AMB-001/status');
     await statusRef.set('responding');
     console.log("✅ Ambulance status: responding");
-    
-    // ════════════════════════════════════════════════════════════
-    // END OF NEW CODE
-    // ════════════════════════════════════════════════════════════
 
     document.getElementById('ov-status').textContent = currentLang === 'te' ? 'డేటా సేవ్ చేయబడింది ✓' : 'Data Saved ✓';
     await sleep(800);
@@ -1010,7 +993,6 @@ async function loadNavAI(h) {
   const prompt = `Emergency ambulance in India approaching ${h.name} hospital with a ${eLabel} patient.\n${p1} Be specific and practical.`;
 
   try {
-    // SECURITY FIX: FastAPI proxy — GEMINI_API_KEY on server only
     const res = await fetch(`${API_BASE}/api/v1/ai/first-aid`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1024,8 +1006,6 @@ async function loadNavAI(h) {
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
 
-    // BUG FIX: FastAPI proxy returns {text, status} — NOT Gemini's raw candidates[] format.
-    // data.candidates is always undefined here → AI text never displayed without this fix.
     panel.textContent = data.text || (currentLang === 'te' ? 'సిద్ధంగా ఉండండి.' : 'Prepare for hospital arrival.');
   } catch (e) {
     console.error("Gemini API Error:", e);
@@ -1054,10 +1034,7 @@ function toast(msg, type) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-// ── MITRA AI: SECURE GEMINI INTEGRATION via FastAPI Proxy ────────────
-// SECURITY FIX: GEMINI_API_KEY is read server-side from env var (main.py).
-// The browser NEVER sees the key — all Gemini calls go through the backend.
-// Endpoint: POST /api/v1/ai/first-aid (defined in main.py)
+
 async function fetchMitraAISuggestions(emergencyType, symptoms) {
   const promptText = `Provide 3 immediate pre-hospital first-aid steps for ${emergencyType} with symptoms: ${symptoms}. Keep it under 40 words.`;
 
@@ -1084,30 +1061,23 @@ async function fetchMitraAISuggestions(emergencyType, symptoms) {
 </script>
 <footer class="ftr">
   <div class="ftr-content">
-    <!-- Brand Section -->
     <div class="ftr-col">
       <div class="ftr-logo">SMART TRAFFIC <span>NAVIGATOR</span></div>
       <p class="ftr-desc">IoT,VLSI & AI based emergency transit system for faster medical response.</p>
       <div class="ftr-copy">Copyright © 2026 Team Smart Traffic Navigators </div>
     </div>
-
-    <!-- Quick Links -->
     <div class="ftr-col">
       <h3>RESOURCES</h3>
       <a href="#">System Manual</a>
       <a href="#">Hardware Docs</a>
       <a href="#">AI Guidelines</a>
     </div>
-
-    <!-- Team Section -->
     <div class="ftr-col">
       <h3>DEVELOPMENT</h3>
       <a href="#">ECE Core Team</a>
       <a href="#">Aditya University</a>
       <a href="#">Contact Support</a>
     </div>
-
-    <!-- AI Branding -->
     <div class="ftr-col">
       <h3>POWERED BY</h3>
       <div class="ai-badge-ftr">Mitra AI</div>

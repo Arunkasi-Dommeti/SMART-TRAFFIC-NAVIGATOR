@@ -1,17 +1,4 @@
-# ===========================================================================
-# test_main.py — Smart Traffic Navigator — pytest Unit Tests
-#
-# Run : pytest test_main.py -v
-# Deps: pip install pytest pytest-asyncio httpx fastapi sqlalchemy
-#
-# Coverage:
-#   ✓ haversine_km          — distance accuracy
-#   ✓ score_hospital()      — scoring formula, edge cases, no-bed guard
-#   ✓ calculate_survival_boost() — formula correctness, cap, unknown type
-#   ✓ ConnectionManager     — connect, disconnect, broadcast, dead-socket cleanup
-#   ✓ /health endpoint      — API smoke test
-#   ✓ /api/v1/survival-boost — query param routing
-# ===========================================================================
+
 
 import json
 import os
@@ -20,7 +7,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
 
-# ── Env vars must be set BEFORE importing the app ───────────────────────────
+
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("HOSPITAL_SECURE_KEY", "test-key-for-pytest")
 os.environ.setdefault("GEMINI_API_KEY", "test-gemini-key")
@@ -40,9 +27,7 @@ from main import (
 client = TestClient(app)
 
 
-# ===========================================================================
-# Fixtures
-# ===========================================================================
+
 
 def make_hospital(
     id=1,
@@ -72,16 +57,14 @@ def make_hospital(
     return h
 
 
-# ===========================================================================
-# 1. haversine_km — distance accuracy
-# ===========================================================================
+
 
 class TestHaversineKm:
     def test_same_point_is_zero(self):
         assert haversine_km(17.385, 78.487, 17.385, 78.487) == 0.0
 
     def test_known_distance_approx(self):
-        # Hyderabad → Secunderabad (~10 km direct)
+
         dist = haversine_km(17.385, 78.487, 17.443, 78.498)
         assert 6.0 < dist < 14.0, f"Expected ~10 km, got {dist:.2f}"
 
@@ -94,9 +77,7 @@ class TestHaversineKm:
         assert haversine_km(0.0, 0.0, 1.0, 1.0) > 0.0
 
 
-# ===========================================================================
-# 2. score_hospital() — core ranking algorithm
-# ===========================================================================
+
 
 class TestScoreHospital:
     def test_returns_none_when_no_beds(self):
@@ -106,7 +87,7 @@ class TestScoreHospital:
 
     def test_spec_match_gives_higher_score(self):
         """Hospital with matching specialization must score higher than one without."""
-        # Cardiac emergency → needs Cardiology
+  
         h_match    = make_hospital(id=1, specializations=["Cardiology", "ICU"])
         h_no_match = make_hospital(id=2, specializations=["Orthopedics"])
 
@@ -125,7 +106,7 @@ class TestScoreHospital:
         Perfect case: spec match + zero distance + all beds available → score = 1.0
         """
         h = make_hospital(
-            lat=17.385, lng=78.487,   # Same coords as ambulance → dist=0
+            lat=17.385, lng=78.487,   
             total_beds=100, available_beds=100,
             specializations=["Cardiology", "ICU"],
         )
@@ -192,9 +173,6 @@ class TestScoreHospital:
         assert r_high.score > r_low.score
 
 
-# ===========================================================================
-# 3. calculate_survival_boost() — formula + caps
-# ===========================================================================
 
 class TestCalculateSurvivalBoost:
     def test_cardiac_2_junctions(self):
@@ -250,9 +228,7 @@ class TestCalculateSurvivalBoost:
             assert key in r, f"Missing key: {key}"
 
 
-# ===========================================================================
-# 4. ConnectionManager — WebSocket lifecycle
-# ===========================================================================
+
 
 class TestConnectionManager:
     def setup_method(self):
@@ -322,9 +298,6 @@ class TestConnectionManager:
         assert len(self.mgr.active) == 3
 
 
-# ===========================================================================
-# 5. API endpoint smoke tests
-# ===========================================================================
 
 class TestAPIEndpoints:
     def test_health_returns_ok(self):
@@ -370,9 +343,7 @@ class TestAPIEndpoints:
         assert r.status_code == 403
 
 
-# ===========================================================================
-# 6. EMERGENCY_SPECS completeness
-# ===========================================================================
+
 
 class TestEmergencySpecs:
     def test_all_types_have_emergency_fallback(self):

@@ -6,10 +6,6 @@
 #include <TinyGPS++.h>
 #include <HardwareSerial.h>
 
-// ── SECURE CONFIGURATION ──────────────────────────────────────────
-// PRODUCTION NOTE: Do not hardcode credentials in public repositories.
-// In a full deployment, these should be loaded from ESP32 EEPROM, SPIFFS, 
-// or provisioned via a WiFiManager captive portal.
 #define WIFI_SSID "YOUR_SSID_HERE" 
 #define WIFI_PASSWORD "YOUR_PASSWORD_HERE"
 
@@ -32,29 +28,25 @@
 #define LED_POWER 4
 #define LED_EMERGENCY 13
 
-// ── Manual Trigger Fallback ──────────────────────────────────────────────
-// GPIO0 = BOOT button on ESP32 DevKit V1 — already on the board, no extra wiring.
-// Used ONLY when WiFi fails (LoRa-Only mode).
-// Press once → activate emergency LoRa TX
-// Press again → cancel
+
 #define MANUAL_TRIGGER_BTN  0
 
-// ── Protocol Constants ──────────────────────────────────────────
+// Protocol Constants 
 #define AMBULANCE_NUM_ID 0x0001  // Binary ID to match gateway whitelist (0x0001)
 #define CMD_EMERGENCY    0x31
 #define CMD_NORMAL       0x30
 #define XOR_SECRET_KEY   0x5A
 #define LORA_SYNC_WORD   0x12
 
-// ── GPS Configuration ─────────────────────────────────────────────
-#define GPS_RX_PIN 16 // Connect to NEO-6M TX
-#define GPS_TX_PIN 17 // Connect to NEO-6M RX
+//  GPS Configuration 
+#define GPS_RX_PIN 16 
+#define GPS_TX_PIN 17 
 #define GPS_BAUD 9600
 
 TinyGPSPlus gps;
-HardwareSerial gpsSerial(2); // Use UART2
+HardwareSerial gpsSerial(2); // UART2
 
-// Global Objects
+// Global Object
 FirebaseData fbdo;
 FirebaseData stream;
 FirebaseAuth auth;
@@ -66,18 +58,16 @@ unsigned long lastUpdate = 0;
 const unsigned long UPDATE_INTERVAL = 1000;
 const unsigned long GPS_MAX_FIX_AGE_MS = 5000;
 
-// ── LoRa-Only Fallback State ─────────────────────────────────────────────
+// LoRa-Only Fallback State 
 bool          wifiAvailable  = false;
-// Set true only on successful WiFi connect
+// uccessful WiFi connect
 bool          loraOnlyMode   = false;
-// Activated when WiFi fails at boot
-
-// Button debounce (GPIO0 BOOT button)
+// Activate when WiFi fails 
 bool          btnLastState   = HIGH;
 unsigned long btnPressTime   = 0;
 const unsigned long DEBOUNCE_MS = 50;
 
-// Real GPS state. Do not publish fallback coordinates for ranking.
+
 float currentLat = 0.0;
 float currentLng = 0.0;
 int currentSpeed = 0;
@@ -102,7 +92,7 @@ void setup() {
   digitalWrite(LED_POWER, LOW);
   digitalWrite(LED_EMERGENCY, LOW);
 
-  // Manual trigger button (GPIO0 = BOOT button, active LOW, internal pull-up)
+  
   pinMode(MANUAL_TRIGGER_BTN, INPUT_PULLUP);
  
   // Connect WiFi
@@ -111,7 +101,7 @@ void setup() {
   // Setup Firebase
   setupFirebase();
 
-  // ── Determine operating mode ─────────────────────────────────
+  //  Determine operating mode 
   if (!wifiAvailable) {
     loraOnlyMode = true;
     Serial.println("╔══════════════════════════════════════════════════╗");
@@ -140,22 +130,22 @@ void setup() {
 void loop() {
   static unsigned long lastHeartbeat = 0;
 
-  // ── Feed GPS Data ───────────────────────────────────────────────
+  //  GPS Data 
   while (gpsSerial.available() > 0) {
     gps.encode(gpsSerial.read());
   }
 
-  // ── LoRa-Only fallback: poll BOOT button ──────────────────────
+  // LoRa
   checkManualButton();
 
-  // Update location and transmit LoRa if emergency active
+  // Update location and transmit LoRa 
   if (isEmergencyActive && (millis() - lastUpdate >= UPDATE_INTERVAL)) {
     updateLocation();
     transmitLoRa();
     lastUpdate = millis();
   }
  
-  // Heartbeat every 5 seconds to show system is alive
+  // Heartbeat to show system is alive
   if (millis() - lastHeartbeat >= 5000) {
     if (isEmergencyActive) {
       Serial.println("💓 System active - LoRa transmitting...");
@@ -177,7 +167,7 @@ void connectWiFi() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
  
   int attempts = 0;
-  // Non-blocking WiFi connect with attempt limit
+
   while (WiFi.status() != WL_CONNECTED && attempts < 30) {
     delay(500);
     Serial.print(".");
@@ -298,7 +288,7 @@ void onEmergencyTriggered(FirebaseStream data) {
     isEmergencyActive = true;
     digitalWrite(LED_EMERGENCY, HIGH);
  
-    // Fetch details
+    // details
     fetchEmergencyDetails(emergencyId);
 
     // Update status
@@ -318,7 +308,7 @@ void onStreamTimeout(bool timeout) {
   }
 }
 
-// Fetch Emergency Details
+//  Emergency Details
 void fetchEmergencyDetails(String emergencyId) {
   String path = "/active_emergencies/" + emergencyId;
 
@@ -352,7 +342,7 @@ bool gpsFixIsFresh() {
   return gps.location.isValid() && gps.location.age() <= GPS_MAX_FIX_AGE_MS;
 }
 
-// Update Location using actual NEO-6M Data
+// Update location
 void updateLocation() {
   hasGpsFix = gpsFixIsFresh();
 
@@ -394,7 +384,7 @@ void updateLocation() {
       json.set("lat", currentLat);
       json.set("lng", currentLng);
     }
-    // Use Firebase server timestamp
+    // Use Firebase server 
     json.set("timestamp/.sv", "timestamp");
  
     Firebase.RTDB.updateNode(&fbdo, path.c_str(), &json);
@@ -434,21 +424,21 @@ void updateAmbulanceStatus(String status) {
   Serial.println("Status: " + status);
 }
 
-// ── Manual Trigger Button (LoRa-Only Fallback) ───────────────────────────
+// ── Manual Trigger Button 
 void checkManualButton() {
-  if (!loraOnlyMode) return;  // Firebase path handles triggers — skip entirely
+  if (!loraOnlyMode) return; 
 
   bool btnNow = digitalRead(MANUAL_TRIGGER_BTN);
 
-  // Detect falling edge (button pressed down)
+  
   if (btnLastState == HIGH && btnNow == LOW) {
     btnPressTime = millis();
   }
 
-  // Detect rising edge (button released) — confirm after debounce period
+  
   if (btnLastState == LOW && btnNow == HIGH) {
     if (millis() - btnPressTime >= DEBOUNCE_MS) {
-      // Valid press confirmed — toggle emergency state
+      
       if (!isEmergencyActive) {
         isEmergencyActive  = true;
         currentEmergencyId = "MANUAL-" + String(millis());
@@ -503,13 +493,13 @@ void setupLoRa() {
 
 // LoRa Transmit
 void transmitLoRa() {
-  // Construct the 4-byte binary packet expected by Gateway/FPGA
+  // 4-byte binary packet expected by Gateway
   byte cmd = isEmergencyActive ? CMD_EMERGENCY : CMD_NORMAL;
   byte id_h = (AMBULANCE_NUM_ID >> 8) & 0xFF;
   byte id_l = AMBULANCE_NUM_ID & 0xFF;
   byte chk = cmd ^ id_h ^ id_l ^ XOR_SECRET_KEY;
 
-  // Create fixed size 4-byte array
+
   byte packet[4] = {cmd, id_h, id_l, chk};
  
   LoRa.beginPacket();

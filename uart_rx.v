@@ -1,20 +1,3 @@
-// ============================================================
-// Module  : uart_rx.v
-// Board   : Tang Nano 9K (Gowin GW1NR-9)
-// Clock   : 27 MHz
-// Baud    : 9600
-// CLKS_PER_BIT = 27_000_000 / 9600 = 2813
-//
-// Function:
-//   Receives serial bytes from ESP32 Gateway GPIO17
-//   Uses double-sync on RX input to prevent metastability
-//   Samples each bit at middle of bit period (HALF_BIT)
-//   Pulses data_valid HIGH for exactly 1 clock cycle
-//
-// Connection:
-//   rx pin → Tang Nano 9K physical Pin 40 (IOB33B, BANK2, 3.3V)
-//   10kΩ pull-down resistor between Pin 40 and GND
-// ============================================================
 
 module uart_rx (
     input  wire       clk,        // 27 MHz
@@ -60,7 +43,6 @@ module uart_rx (
             end else if (busy) begin
                 cnt <= cnt + 1;
 
-                // At half-period: verify start bit still LOW
                 if (cnt == HALF_BIT && bit_idx == 4'd0) begin
                     if (rx_s2 != 1'b0) begin
                         busy <= 1'b0;  // False trigger — abort

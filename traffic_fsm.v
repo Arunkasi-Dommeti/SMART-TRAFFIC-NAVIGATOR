@@ -1,59 +1,26 @@
-// ============================================================
-// Module  : traffic_fsm.v
-// Board   : Tang Nano 9K (27 MHz)
-// Junctions: 2 (Junction A = ambulance lane, Junction B = cross)
-//
-// FSM States:
-//   IDLE      → Initialize, go to S1_GREEN
-//   S1_GREEN  → Jct A GREEN, Jct B RED  (15 seconds)
-//   S1_YELLOW → Jct A YELLOW, Jct B RED (2 seconds)
-//   S2_GREEN  → Jct A RED, Jct B GREEN  (15 seconds)
-//   S2_YELLOW → Jct A RED, Jct B YELLOW (2 seconds)
-//   EMERGENCY → Jct A GREEN, Jct B RED  (30 seconds)
-//              Preempts any state immediately on valid packet
-//
-// Timing at 27 MHz:
-//   1 sec = 27,000,000 cycles
-//   GREEN    = 15 sec = 405,000,000 cycles
-//   YELLOW   =  2 sec =  54,000,000 cycles
-//   EMERGENCY= 30 sec = 810,000,000 cycles
-//   DETECT   =  0.5s  =  13,500,000 cycles
-//
-// Output pins (external LEDs via 220Ω resistors):
-//   jA_red/yellow/green/white → Junction A (ambulance lane)
-//   jB_red/yellow/green/white → Junction B (cross traffic)
-//
-// LED logic: HIGH = LED ON, LOW = LED OFF
-// ============================================================
+
 
 module traffic_fsm (
     input  wire clk,
-    input  wire rst_n,        // Active LOW reset
-    input  wire emergency,    // From packet_validator emergency_out
-    input  wire valid_pkt,    // From packet_validator valid_packet (pulse)
-    // ── Phase 4 scaffold: priority arbitration input ──────────────────────
-    // Currently unused in single-ambulance mode.
-    // Phase 4: priority_encoder.v drives this input to select highest-
-    // priority ambulance when multiple units are active simultaneously.
-    // No FSM redesign needed — just connect priority_encoder output here.
-    input  wire [1:0] amb_priority,    // 2'd3=CRITICAL .. 2'd0=LOW
+    input  wire rst_n,        
+    input  wire emergency,    
+    input  wire valid_pkt,    
+    input  wire [1:0] amb_priority,    
 
     output reg  jA_red,
     output reg  jA_yellow,
     output reg  jA_green,
-    output reg  jA_white,     // Pedestrian / indicator
+    output reg  jA_white,
 
     output reg  jB_red,
     output reg  jB_yellow,
     output reg  jB_green,
     output reg  jB_white,
 
-    // HIGH (level) while FSM is in EMERGENCY state
-    // Wired to fpga_ack in traffic_top → Pin 33 → ESP32 GPIO16
     output reg  in_emergency
 );
 
-    // ── State encoding ──────────────────────────────────────────
+
     parameter IDLE      = 3'd0;
     parameter S1_GREEN  = 3'd1;
     parameter S1_YELLOW = 3'd2;
@@ -63,24 +30,24 @@ module traffic_fsm (
 
     reg [2:0] state;
 
-    // ── Timing constants (27 MHz) ───────────────────────────────
+
 `ifdef SIMULATION
-    // Fast timings for tb_traffic_top.v simulation
+
     parameter GREEN_TIME  = 32'd200;
     parameter YELLOW_TIME = 32'd80;
     parameter EMERG_TIME  = 32'd400;
     parameter DETECT_TIME = 32'd40;
 `else
-    // Real hardware values (27 MHz):
-    parameter GREEN_TIME  = 32'd405_000_000;  // 15 seconds
-    parameter YELLOW_TIME = 32'd54_000_000;   // 2 seconds
-    parameter EMERG_TIME  = 32'd810_000_000;  // 30 seconds
-    parameter DETECT_TIME = 32'd13_500_000;   // 0.5 seconds
+
+    parameter GREEN_TIME  = 32'd405_000_000;  
+    parameter YELLOW_TIME = 32'd54_000_000;
+    parameter EMERG_TIME  = 32'd810_000_000;  
+    parameter DETECT_TIME = 32'd13_500_000;
 `endif
 
     reg [31:0] counter;
 
-    // ── Sequential logic ───────────────────────────────────────
+
     always @(posedge clk) begin
         if (!rst_n) begin
             state   <= IDLE;
@@ -95,7 +62,7 @@ module traffic_fsm (
                 end
 
                 S1_GREEN: begin
-                    // Emergency preempts immediately
+                    
                     if (valid_pkt && emergency) begin
                         state   <= EMERGENCY;
                         counter <= 32'd0;
@@ -136,8 +103,6 @@ module traffic_fsm (
                 end
 
                 EMERGENCY: begin
-                    // Hold for 30 seconds then return to S1_GREEN
-                    // Also: if cancel packet arrives early, reset
                     if (valid_pkt && !emergency) begin
                         state   <= S1_GREEN;
                         counter <= 32'd0;
@@ -156,9 +121,8 @@ module traffic_fsm (
         end
     end
 
-    // ── Combinational output logic ─────────────────────────────
     always @(*) begin
-        // Safe defaults: all RED
+       
         jA_red       = 1'b1;
         jA_yellow    = 1'b0;
         jA_green     = 1'b0;
@@ -167,48 +131,46 @@ module traffic_fsm (
         jB_yellow    = 1'b0;
         jB_green     = 1'b0;
         jB_white     = 1'b0;
-        in_emergency = 1'b0;  // default: not in EMERGENCY
+        in_emergency = 1'b0;  
 
         case (state)
 
             IDLE: begin
-                // All RED during startup
+            
                 jA_red = 1'b1;
                 jB_red = 1'b1;
             end
 
             S1_GREEN: begin
-                // Junction A: GREEN + pedestrian stop
-                // Junction B: RED   + pedestrian walk
+             
                 jA_red    = 1'b0;
                 jA_green  = 1'b1;
-                jA_white  = 1'b0;   // No pedestrian on active lane
+                jA_white  = 1'b0;
                 jB_red    = 1'b1;
-                jB_white  = 1'b1;   // Pedestrian can walk on stopped lane
+                jB_white  = 1'b1;   
             end
 
             S1_YELLOW: begin
-                // Junction A transitioning: YELLOW
-                // Junction B: RED
+                
+               
                 jA_red    = 1'b0;
                 jA_yellow = 1'b1;
                 jA_white  = 1'b0;
                 jB_red    = 1'b1;
-                jB_white  = 1'b0;   // Pedestrian stop during transition
+                jB_white  = 1'b0;   
             end
 
             S2_GREEN: begin
-                // Junction A: RED   + pedestrian walk
-                // Junction B: GREEN + pedestrian stop
+
                 jA_red    = 1'b1;
-                jA_white  = 1'b1;   // Pedestrian can walk
+                jA_white  = 1'b1;   
                 jB_red    = 1'b0;
                 jB_green  = 1'b1;
                 jB_white  = 1'b0;
             end
 
             S2_YELLOW: begin
-                // Junction B transitioning: YELLOW
+            
                 jA_red    = 1'b1;
                 jA_white  = 1'b0;
                 jB_red    = 1'b0;
@@ -217,18 +179,15 @@ module traffic_fsm (
             end
 
             EMERGENCY: begin
-                // Ambulance corridor:
-                // Junction A: GREEN (ambulance passes)
-                // Junction B: RED   (all stopped)
-                // White on B: pedestrian warning
+             
                 jA_red       = 1'b0;
                 jA_green     = 1'b1;
                 jA_white     = 1'b0;
                 jB_red       = 1'b1;
                 jB_yellow    = 1'b0;
                 jB_green     = 1'b0;
-                jB_white     = 1'b1;  // Warning: ambulance approaching
-                in_emergency = 1'b1;  // ACK to gateway ESP32 via Pin 33
+                jB_white     = 1'b1;  
+                in_emergency = 1'b1; 
             end
 
             default: begin

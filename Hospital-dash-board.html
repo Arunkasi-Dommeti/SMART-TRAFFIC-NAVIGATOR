@@ -15,7 +15,7 @@
 
 <style>
 .ftr {
-  background: #000; /* Pure black vibe like Optica */
+  background: #000;
   border-top: 1px solid var(--border);
   padding: 60px 20px 30px;
   margin-top: 50px;
@@ -387,12 +387,6 @@ body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(r
 
 <script>
 // FIREBASE CONFIG
-// SECURITY NOTE: Firebase client-side config (apiKey, appId etc.) is
-// intentionally public per Google Firebase architecture (by design).
-// These values identify the project, not authenticate access.
-// Security is enforced by Firebase Security Rules on the server.
-// See: https://firebase.google.com/docs/projects/api-keys
-// Production: restrict this apiKey to allowed domains in Google Cloud Console.
 const firebaseConfig = {
   apiKey: "AIzaSyAhDKZsyio33xZjlLu9wrpP6FvCz0nx4Qo",
   authDomain: "emt-ambulance-case-data.firebaseapp.com",
@@ -409,9 +403,9 @@ if (!firebase.apps.length) {
 }
 const db = firebase.database();
 
-// ── FASTAPI HOSPITAL LOAD UPDATE AUTH LOGIC (ADDED FIX) ──
+
 const API_BASE_URL = "http://localhost:8000/api/v1";
-const HOSPITAL_ID = 1; // Example Default Hospital ID
+const HOSPITAL_ID = 1; // Default Hospital ID
 
 async function updateLoad(availableBeds, icuAvailable, loadPct) {
   try {
@@ -424,7 +418,7 @@ async function updateLoad(availableBeds, icuAvailable, loadPct) {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
-            'X-Hospital-API-Key': 'HOSPITAL_AUTH_2026' // Syncs with main.py Security update
+            'X-Hospital-API-Key': 'HOSPITAL_AUTH_2026' // Syncs
         },
         body: JSON.stringify(payload)
     });
@@ -569,7 +563,7 @@ const PREP_CHECKLIST = {
   ]
 };
 
-// INIT — Connect Firebase
+
 window.onload = () => {
   document.querySelectorAll('.lang').forEach(el => {
      el.innerHTML = el.getAttribute('data-te');
@@ -577,7 +571,7 @@ window.onload = () => {
   connectFirebase();
 };
 
-// LANGUAGE SWITCHER
+
 function toggleLanguage() {
   currentLang = currentLang === 'te' ? 'en' : 'te';
   
@@ -614,7 +608,7 @@ function toggleLanguage() {
   document.getElementById('alert-badge').textContent = currentLang === 'te' ? 'కొత్తవి' : 'NEW';
 
   renderAlertsList();
-  if (selectedId) selectAlert(selectedId, false); // Don't close menu just for lang change
+  if (selectedId) selectAlert(selectedId, false);
 }
 
 function connectFirebase() {
@@ -652,9 +646,9 @@ function connectFirebase() {
 
     if (!isFirstLoad && newCount > prevCount) {
       triggerNewAlertEffect();
-      shouldAutoSelect = true; // Switch to the brand new alert immediately
+      shouldAutoSelect = true; 
     } else if (isFirstLoad) {
-      shouldAutoSelect = true; // First time loading, display the latest alert directly
+      shouldAutoSelect = true; 
     }
 
     isFirstLoad = false;
@@ -669,10 +663,10 @@ function connectFirebase() {
           const tB = new Date(b[1].timestamp || 0).getTime();
           return tB - tA;
         });
-        selectAlert(entries[0][0], false); // Load newest automatically (menu stays as is)
+        selectAlert(entries[0][0], false); 
       }
     } else if (selectedId && allAlerts[selectedId]) {
-      selectAlert(selectedId, false); // Just refresh current alert data without closing menu
+      selectAlert(selectedId, false); 
     }
 
   }, (error) => {
@@ -682,7 +676,7 @@ function connectFirebase() {
   });
 }
 
-// RENDER ALERTS LIST
+// RENDER ALERTS
 function renderAlertsList() {
   const list = document.getElementById('alerts-list');
   const entries = Object.entries(allAlerts);
@@ -776,13 +770,13 @@ function buildAlertCard(id, a) {
   return div;
 }
 
-// SELECT ALERT — Show detail view
+
 function selectAlert(id, autoCloseMenu = true) {
   selectedId = id;
   const a = allAlerts[id];
   if (!a) return;
 
-  // Auto close menu when a case is selected manually
+
   if (autoCloseMenu) {
     document.querySelector('.alerts-panel').classList.remove('open');
     const overlay = document.getElementById('panel-overlay');

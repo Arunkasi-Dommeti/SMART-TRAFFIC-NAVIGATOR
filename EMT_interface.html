@@ -15,9 +15,9 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="manifest" href="/site.webmanifest">
 <style>
-  /* FOOTER STYLES */
+  
 .ftr {
-  background: #000; /* Pure black vibe like Optica */
+  background: #000; 
   border-top: 1px solid var(--border);
   padding: 60px 20px 30px;
   margin-top: 50px;
@@ -462,9 +462,9 @@ input:focus { border-color:var(--blue); }
 </script>
 
 <script>
-// ──────────────────────────────────────────
-// 1. FIREBASE SETUP
-// ──────────────────────────────────────────
+
+// FIREBASE SETUP
+
 const firebaseConfig = {
   apiKey: "AIzaSyAhDKZsyio33xZjlLu9wrpP6FvCz0nx4Qo",
   authDomain: "emt-ambulance-case-data.firebaseapp.com",
@@ -481,9 +481,9 @@ if (!firebase.apps.length) {
 }
 const db = firebase.database();
 
-// ──────────────────────────────────────────
-// 2. STATE & LANG (SECURED)
-// ──────────────────────────────────────────
+
+// STATE & LANG 
+
 const DEFAULT_ENV = Object.freeze({
   API_BASE: "http://localhost:8000"
 });
@@ -522,9 +522,8 @@ const S = {
   recordId: null 
 };
 
-// ──────────────────────────────────────────
+
 // 3. DATA
-// ──────────────────────────────────────────
 const EMERGENCY_DATA = {
   cardiac: {
     label_te: 'గుండె సమస్య (Cardiac)', label_en: 'Cardiac Issue',
@@ -588,9 +587,9 @@ const EMERGENCY_DATA = {
   }
 };
 
-// ──────────────────────────────────────────
-// 4. LANGUAGE SWITCHER
-// ──────────────────────────────────────────
+
+// LANGUAGE SWITCHER
+
 function switchLanguage(lang) {
   window.currentLang = lang;
   
@@ -621,9 +620,9 @@ if (document.getElementById('st1').classList.contains('done')) {
   }
 }
 
-// ──────────────────────────────────────────
-// 5. INIT
-// ──────────────────────────────────────────
+
+// INIT
+
 window.onload = () => { initGPS(); switchLanguage('te'); };
 
 function initGPS() {
@@ -655,9 +654,9 @@ function updateGPSUI() {
      <div style="font-size:9px;color:var(--green);font-family:var(--mono)">${S.lng || '--'}</div>`;
 }
 
-// ──────────────────────────────────────────
-// 6. EMERGENCY TYPE SELECT
-// ──────────────────────────────────────────
+
+// EMERGENCY TYPE SELECT
+
 function selType(btn, type) {
   document.querySelectorAll('.et-btn').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
@@ -693,9 +692,8 @@ function renderSymptoms(type) {
   });
 }
 
-// ──────────────────────────────────────────
-// 7. AI FIRST AID
-// ──────────────────────────────────────────
+//  AI FIRST AID
+
 async function callAI(type) {
   const panel = document.getElementById('ai-content');
   panel.innerHTML = currentLang === 'te' ? '<span class="typing">AI ఆలోచిస్తోంది...</span>' : '<span class="typing">Generating AI Instructions...</span>';
@@ -764,18 +762,16 @@ function getStaticFirstAid(type, lang) {
   return lang === 'en' ? (fa_en[type] || fa_en.default) : (fa_te[type] || fa_te.default);
 }
 
-// ──────────────────────────────────────────
-// 8. GENDER SELECT
-// ──────────────────────────────────────────
+//  GENDER SELECT
 function selGender(btn, g) {
   document.querySelectorAll('.g-btn').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
   S.gender = g;
 }
 
-// ──────────────────────────────────────────
-// 9. SEND EMERGENCY - FIREBASE PUSH
-// ──────────────────────────────────────────
+
+//  SEND EMERGENCY - FIREBASE PUSH
+
 async function doSend() {
   S.age = document.getElementById('p-age').value;
   if (!S.type) { toast(currentLang === 'te' ? '⚠ అత్యవసర రకం ఎంచుకోండి' : '⚠ Select Emergency Type', 'warn'); return; }
@@ -845,9 +841,9 @@ async function doSend() {
     toast('⚠ డేటా పంపడంలో విఫలమైంది!', 'err');
   }
 }
-// ──────────────────────────────────────────
-// 10. SCREEN 2
-// ──────────────────────────────────────────
+
+//  SCREEN 2
+
 function goS2() {
   switchScreen('screen2');
   document.getElementById('st1').classList.remove('done');
@@ -963,9 +959,9 @@ async function selHospital(h) {
   goS3(h);
 }
 
-// ──────────────────────────────────────────
-// 12. SCREEN 3
-// ──────────────────────────────────────────
+
+//  SCREEN 3
+
 function goS3(h) {
   switchScreen('screen3');
   document.getElementById('st2').classList.remove('active');
@@ -1035,9 +1031,9 @@ async function loadNavAI(h) {
   }
 }
 
-// ──────────────────────────────────────────
+
 // UTILS
-// ──────────────────────────────────────────
+
 function switchScreen(id) {
   document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.style.display = 'none'; });
   const el = document.getElementById(id);

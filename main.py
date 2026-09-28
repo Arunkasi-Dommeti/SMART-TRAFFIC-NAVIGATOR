@@ -1,27 +1,13 @@
-# ===========================================================================
-# main.py  —  Smart Traffic Navigator  —  FastAPI Backend
-# Hospital ranking + Ambulance data ingestion + Real-time WebSocket
-#
-# Run  : uvicorn main:app --reload --host 0.0.0.0 --port 8000
-# Docs : http://localhost:8000/docs
-#
-# Scoring formula (matches spec and README exactly):
-#   Score = (Specialization × 0.50)
-#         + (Distance       × 0.35)
-#         + (Beds           × 0.15)
-# ===========================================================================
+
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, Security
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, Text
 from sqlalchemy.pool import StaticPool
-# SQLAlchemy 2.0: declarative_base moved from ext.declarative to orm
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
-# FIX 1: Import timezone — datetime.utcnow() is deprecated in Python 3.12+
-# Use datetime.now(timezone.utc) everywhere instead
 from datetime import datetime, timezone
 import asyncio
 import json
@@ -29,10 +15,7 @@ import math
 import os
 import httpx
 
-# ===========================================================================
-# Database setup — PostgreSQL
-# Set DATABASE_URL environment variable for production
-# ===========================================================================
+
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://navigator:navigator@localhost:5432/smart_traffic"
@@ -48,9 +31,9 @@ engine       = create_engine(DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base         = declarative_base()
 
-# ===========================================================================
+
 # Database Models
-# ===========================================================================
+
 
 class HospitalDB(Base):
     __tablename__ = "hospitals"
@@ -65,7 +48,7 @@ class HospitalDB(Base):
     current_load_pct = Column(Float, default=50.0)   # 0–100
     specializations  = Column(Text, default="[]")    # JSON list of strings
     is_active        = Column(Boolean, default=True)
-    # FIX 1: lambda wrapper — datetime.now(timezone.utc) instead of datetime.utcnow
+
     last_updated     = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -102,9 +85,7 @@ class EmergencyAlertDB(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# ===========================================================================
-# Pydantic Schemas
-# ===========================================================================
+
 
 class AmbulanceUpdate(BaseModel):
     ambulance_id   : str
@@ -157,9 +138,7 @@ class HospitalResponse(BaseModel):
     specializations      : List[str]
     specialization_match : bool
 
-# ===========================================================================
-# Haversine distance (km)
-# ===========================================================================
+
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R    = 6371.0
     dlat = math.radians(lat2 - lat1)
@@ -170,17 +149,7 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
             * math.sin(dlon / 2) ** 2)
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-# ===========================================================================
-# Hospital Ranking — Scoring Formula
-# ===========================================================================
-# Score = (Specialization × 0.50)    ← 50% weight
-#       + (Distance       × 0.35)    ← 35% weight
-#       + (Beds           × 0.15)    ← 15% weight
-#
-# Matches spec (Section 6) and README exactly.
-# ===========================================================================
 
-# Emergency type → required hospital specializations
 EMERGENCY_SPECS = {
     "cardiac"    : ["Cardiology", "ICU", "CCU", "Emergency"],
     "trauma"     : ["Trauma", "Orthopedics", "Surgery", "Emergency"],
@@ -252,21 +221,6 @@ def score_hospital(
     )
 
 
-# ===========================================================================
-# Survival Probability Calculator
-# ===========================================================================
-# Based on peer-reviewed emergency medicine literature:
-#   - Cardiac arrest: survival decreases 7–10% per minute without
-#     defibrillation (Cummins et al., ACLS Guidelines 2020)
-#   - Stroke (brain tissue): ~1.9 million neurons die per minute of delay
-#     (Saver JL, JAMA 2006 — "Time Is Brain")
-#   - Trauma with hemorrhage: perfusion time is critical within the
-#     "platinum 10 minutes" window (PHTLS 9th ed.)
-#
-# This system eliminates 2–4 minutes of delay per junction by preempting
-# traffic signals. For N junctions cleared, time saved = N × avg_delay.
-# The survival boost is the product of per-minute survival gain × time saved.
-# ===========================================================================
 
 SURVIVAL_PARAMS = {
     "cardiac"    : {"pct_per_min": 9.0,  "avg_junction_delay_min": 2.5,
@@ -327,9 +281,7 @@ def calculate_survival_boost(
         "methodology"         : "Junction delay elimination × per-minute survival rate from literature",
     }
 
-# ===========================================================================
-# WebSocket connection manager
-# ===========================================================================
+
 class ConnectionManager:
     def __init__(self):
         self.active = []
@@ -355,21 +307,16 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# ===========================================================================
-# FastAPI app & Security Setup
-# ===========================================================================
+
 app = FastAPI(
     title       = "Smart Traffic Navigator — Hospital Ranking API",
     description = "Ambulance data ingestion · AI hospital ranking · Real-time GPS broadcast",
     version     = "1.0.0",
 )
 
-# SECURE API KEY FIX (AI EVALUATOR REQUIREMENT)
 API_KEY_NAME = "X-Hospital-API-Key"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
-# SECURITY FIX: Load from environment variable — never hardcode credentials
-# Production setup: export HOSPITAL_SECURE_KEY="your-strong-random-key"
-# Local dev: add HOSPITAL_SECURE_KEY=... to your .env file and use python-dotenv
+
 HOSPITAL_SECURE_KEY = os.getenv("HOSPITAL_SECURE_KEY")
 if not HOSPITAL_SECURE_KEY:
     raise RuntimeError(
@@ -377,10 +324,7 @@ if not HOSPITAL_SECURE_KEY:
         "Set it before starting the server: export HOSPITAL_SECURE_KEY='your-key'"
     )
 
-# FIX 2: CORS — specific allowed origins instead of wildcard "*"
-# Covers: EMT interface (GitHub Pages), Hospital Dashboard (GitHub Pages),
-# local development (localhost ports 3000, 8080, 5500).
-# Replace with your actual deployed URLs in production.
+
 ALLOWED_ORIGINS = [
     "https://arunkasi-dommeti.github.io",   # EMT Interface (GitHub Pages)
     "https://nandeeswari-7.github.io",      # Hospital Dashboard (GitHub Pages)
@@ -406,23 +350,13 @@ def get_db():
     finally:
         db.close()
 
-# ===========================================================================
-# Routes
-# ===========================================================================
 
 @app.get("/health", tags=["Health"])
 def health():
     return {"status": "ok", "version": "1.0.0", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
-# ---------------------------------------------------------------------------
-# GET /api/v1/survival-boost
-# Returns algorithmic survival probability estimate for an emergency type.
-# Backs the "+42% estimated survival improvement" claim in the problem
-# statement with a formula grounded in clinical literature (not assertion).
-# Used by EMT_interface.html to display survival context to the paramedic.
-#
-# Query: ?emergency_type=cardiac&junctions_cleared=2
+
 # ---------------------------------------------------------------------------
 @app.get("/api/v1/survival-boost", tags=["Clinical"])
 def get_survival_boost(
@@ -437,10 +371,6 @@ def get_survival_boost(
     return calculate_survival_boost(emergency_type, junctions_cleared)
 
 
-# ---------------------------------------------------------------------------
-# POST /api/v1/ambulance/update
-# Ambulance ESP32 sends GPS + speed + emergency type every 5 seconds
-# ---------------------------------------------------------------------------
 @app.post("/api/v1/ambulance/update", tags=["Ambulance"])
 async def update_ambulance(payload: AmbulanceUpdate, db: Session = Depends(get_db)):
     amb = db.query(AmbulanceDB).filter(
@@ -476,11 +406,7 @@ async def update_ambulance(payload: AmbulanceUpdate, db: Session = Depends(get_d
     return {"status": "updated", "ambulance_id": payload.ambulance_id}
 
 
-# ---------------------------------------------------------------------------
-# GET /api/v1/hospital/ranked
-# Returns AI-scored hospital list — used by EMT interface Step 3
-# Query: ?lat=17.38&lng=78.48&emergency_type=cardiac&top_n=5
-# ---------------------------------------------------------------------------
+
 @app.get("/api/v1/hospital/ranked", response_model=List[HospitalResponse], tags=["Hospital"])
 def get_ranked_hospitals(
     lat            : float,
@@ -507,10 +433,7 @@ def get_ranked_hospitals(
     return scored[:top_n]
 
 
-# ---------------------------------------------------------------------------
-# POST /api/v1/ambulance/select-hospital
-# EMT locks in hospital selection — sends pre-alert to hospital dashboard
-# ---------------------------------------------------------------------------
+
 @app.post("/api/v1/ambulance/select-hospital", tags=["Ambulance"])
 async def select_hospital(payload: HospitalSelectRequest, db: Session = Depends(get_db)):
     hospital = db.query(HospitalDB).filter(HospitalDB.id == payload.hospital_id).first()
@@ -551,10 +474,7 @@ async def select_hospital(payload: HospitalSelectRequest, db: Session = Depends(
     }
 
 
-# ---------------------------------------------------------------------------
-# PATCH /api/v1/hospital/{id}/load
-# Hospital dashboard updates real-time bed and occupancy data
-# ---------------------------------------------------------------------------
+
 @app.patch("/api/v1/hospital/{hospital_id}/load", tags=["Hospital"])
 async def update_hospital_load(
     hospital_id : int,
@@ -588,28 +508,12 @@ async def update_hospital_load(
     })
 
     return {"status": "updated", "hospital_id": hospital_id}
-
-
-# ---------------------------------------------------------------------------
-# WebSocket /ws/track/{ambulance_id}
-# Real-time GPS tracking — hospital dashboard + operator map
-#
-# FIX 3: On connect → immediately push current ambulance state from DB
-#        (client gets latest position without waiting for next POST update).
-#        Subsequent GPS updates arrive via manager.broadcast() from
-#        POST /api/v1/ambulance/update — no polling needed.
-#        Keep-alive ping every 30s maintains the connection.
-# ---------------------------------------------------------------------------
 @app.websocket("/ws/track/{ambulance_id}")
 async def websocket_track(websocket: WebSocket, ambulance_id: str):
     # Use a fresh DB session for the WebSocket lifecycle
     db = SessionLocal()
     try:
         await manager.connect(websocket)
-
-        # FIX 3: Push current state immediately on connect
-        # Hospital dashboard sees live data the moment it loads,
-        # not after waiting for the next ambulance POST.
         amb = db.query(AmbulanceDB).filter(
             AmbulanceDB.ambulance_id == ambulance_id
         ).first()
@@ -638,8 +542,7 @@ async def websocket_track(websocket: WebSocket, ambulance_id: str):
                 "timestamp"    : datetime.now(timezone.utc).isoformat(),
             }))
 
-        # Keep-alive loop — real GPS data arrives via manager.broadcast()
-        # from POST /api/v1/ambulance/update (ambulance ESP32 fires every 1s)
+
         while True:
             await asyncio.sleep(30)
             await websocket.send_text(json.dumps({
@@ -653,10 +556,6 @@ async def websocket_track(websocket: WebSocket, ambulance_id: str):
     finally:
         db.close()
 
-
-# ---------------------------------------------------------------------------
-# GET /api/v1/hospitals  —  List all active hospitals
-# ---------------------------------------------------------------------------
 @app.get("/api/v1/hospitals", tags=["Hospital"])
 def list_hospitals(db: Session = Depends(get_db)):
     hospitals = db.query(HospitalDB).filter(HospitalDB.is_active == True).all()
@@ -678,20 +577,6 @@ def list_hospitals(db: Session = Depends(get_db)):
         })
     return result
 
-# ---------------------------------------------------------------------------
-# POST /api/v1/ai/first-aid
-#
-# SECURE GEMINI PROXY — replaces direct client-side Gemini API calls
-# in EMT_interface.html (was lines 686 and 999 with key in plaintext).
-#
-# Security pattern:
-#   INSECURE (before): Browser → Gemini API (GEMINI_API_KEY in page source)
-#   SECURE   (after) : Browser → POST /api/v1/ai/first-aid → Gemini API
-#                      Key lives in server env var, never reaches browser.
-#
-# Server setup: export GEMINI_API_KEY="AIzaSy..."
-# EMT_interface.html updated to call this endpoint instead.
-# ---------------------------------------------------------------------------
 @app.post("/api/v1/ai/first-aid", tags=["AI"])
 async def gemini_first_aid_proxy(payload: GeminiRequest):
     """
